@@ -2,7 +2,6 @@
  * MIT License
  */
 
-#include <iostream>
 #include "VIEngine.hpp"
 #include "../system/Settings.hpp"
 
@@ -126,7 +125,7 @@ void VIEngine::preparePhysicalDevices() {
             throw std::runtime_error("No physical devices found for Vulkan rendering...");
         }
 
-        std::vector<VkPhysicalDevice> availableDevices;
+        std::vector<VkPhysicalDevice> availableDevices(devicesCount);
         vkEnumeratePhysicalDevices(mainInstance, &devicesCount, availableDevices.data());
 
         // Boolean for checking if a device has been found
@@ -211,12 +210,21 @@ void VIEngine::createLogicDevice() {
     }
 }
 
+void VIEngine::prepareWindowSurface() {
+    if (Settings::engineStatus >= VIEngineStatus::VULKAN_PHYSICAL_DEVICES_PREPARED) {
+        VkResult result = glfwCreateWindowSurface(mainInstance, mainWindow, nullptr, &surface);
+
+
+    }
+}
+
 void VIEngine::cleanEngine() {
     if (Settings::engineStatus >= VIEngineStatus::GLFW_LOADED) {
         glfwDestroyWindow(mainWindow);
         glfwTerminate();
 
         if (Settings::engineStatus >= VIEngineStatus::VULKAN_INSTANCE_CREATED) {
+            vkDestroySurfaceKHR(mainInstance, surface, nullptr);
             vkDestroyDevice(mainDevice, nullptr);
             vkDestroyInstance(mainInstance, nullptr);
         }
@@ -238,6 +246,7 @@ void VIEngine::runEngine() {
     initialiseVulkanLibraries();
     preparePhysicalDevices();
     createLogicDevice();
+    prepareWindowSurface();
 
     cleanEngine();
 }

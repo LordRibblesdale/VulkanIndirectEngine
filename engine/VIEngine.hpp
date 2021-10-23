@@ -4,14 +4,27 @@
 
 #pragma once
 
+// Including Vulkan graphic libraries
+#ifdef _WIN64
+#define VK_USE_PLATFORM_WIN32_KHR
+#elif __linux__
+#define VK_USE_PLATFORM_WAYLAND_KHR
+#endif
+// #include <vulkan/vulkan.hpp>
+
 // Including GLFW window manager
 #define GLFW_INCLUDE_VULKAN
+#ifdef _WIN64
+#define GLFW_EXPOSE_NATIVE_WIN32
+#elif __linux__
+
+#endif
 #include <GLFW/glfw3.h>
 
-// Including Vulkan graphic libraries
-#include <vulkan/vulkan.hpp>
-
-#include <unordered_map>
+#include <vector>
+#include <optional>
+#include <iostream>
+#include <algorithm>
 
 // TODO write functions for creating additional devices or recreate entirely devices
 
@@ -20,25 +33,39 @@
  */
 class VIEngine {
     // TODO check multiple line comment
-    GLFWwindow* mainWindow{};                       ///< GLFW window pointer
+    // GLFW
+    GLFWwindow* mainWindow{};                               ///< GLFW window pointer
+    unsigned int glfwExtensionCount{};                      ///< GLFW extensions count for Vulkan ext. initialisation
+    const char** glfwExtensions{};                          /**< GLFW extensions (GLFW APIs and functions) to be used by
+                                                             *    Vulkan for interacting with window */
 
-    VkInstance mainInstance{};                      ///< Vulkan runtime instance
-    VkApplicationInfo applicationInfo{};            ///< Vulkan application data
-    VkInstanceCreateInfo engineCreationInfo{};      ///< Vulkan essential data for creation procedure
+    // Vulkan instance
+    VkInstance mainInstance{};                              ///< Vulkan runtime instance
+    VkApplicationInfo applicationInfo{};                    ///< Vulkan application data
+    VkInstanceCreateInfo engineCreationInfo{};              ///< Vulkan essential data for creation procedure
 
-    VkPhysicalDevice mainPhysicalDevice{};          ///< Vulkan physical device object (for actual device representation)
-
+    // Vulkan physical device
+    VkPhysicalDevice mainPhysicalDevice{};                  /**< Vulkan physical device object (for actual device
+                                                             *    representation) */
     std::optional<unsigned int> mainDeviceSelectedQueueFamily;    ///< Queue family chosen for the main device
-    VkDevice mainDevice{};                                  ///< Vulkan logical device object (for state, resources used by instance)
-    VkDeviceQueueCreateInfo mainDeviceQueueCreationInfo{};  ///< Vulkan essential data for device queue family creation procedure
-    float mainQueueFamilyPriority = 1.0f;                   ///< Main queue family priority
     VkPhysicalDeviceFeatures mainPhysicalDeviceFeatures{};  ///< Main device features to set for chosen device
-    VkDeviceCreateInfo mainDeviceCreationInfo{};            ///< Vulkan main device object (for logical device representation)
 
-    VkQueue graphicsQueue;                                  ///< Main rendering queue
+    // Vulkan logic device
+    VkDevice mainDevice{};                                  /**< Vulkan logical device object (for state, resources
+                                                             *    used by instance) */
+    VkDeviceCreateInfo mainDeviceCreationInfo{};            /**< Vulkan main device object (for logical device
+                                                             *    representation) */
 
-    unsigned int glfwExtensionCount{};      ///< GLFW extensions count for Vulkan ext. initialisation
-    const char** glfwExtensions{};          ///< GLFW extensions (APIs) to be used by Vulkan for interacting with window
+    // Vulkan queue family
+    VkDeviceQueueCreateInfo mainDeviceQueueCreationInfo{};  /**< Vulkan essential data for device queue family creation
+                                                             *    procedure */
+    float mainQueueFamilyPriority = 1.0f;                   ///< Main queue family priority
+
+    // Vulkan graphics queue
+    VkQueue graphicsQueue{};                                ///< Main rendering queue
+
+    // Vulkan window surface
+    VkSurfaceKHR surface{};                                 ///< Window surface for GLFW
 
     /**
      * @brief VIEngine::isDeviceCompliantToQueueFamilies for device validation in terms of operation queue families
@@ -68,8 +95,6 @@ public:
      */
     void initialiseVulkanLibraries();
 
-    // TODO import commands required by the used who imports the engine
-    // TODO import a lambda function so that everyone can implement how the main rendering cycle will work
     /**
      * @brief VIEngine::preparePhysicalDevices for Vulkan rendering device assignment
      * The main device for drawing is found and checked if it has all needed requirements for used commands in the
@@ -79,8 +104,14 @@ public:
 
     /**
      * @brief VIEngine::createLogicDevice create the runtime instance of a physical device, for runtime device own state
+     * From the physical device, a logic device is created and the graphics queue is obtained
      */
     void createLogicDevice();
+
+    /**
+     * @brief VIEngine::prepareWindowSurface
+     */
+    void prepareWindowSurface();
 
     /**
      * @brief VIEngine::cleanEngine for cleaning all structures and window pointers
