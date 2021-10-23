@@ -6,13 +6,16 @@
 
 #include <string>
 
-#define FMT_HEADER_ONLY
-#include <fmt/format.h>
+#include <vector>
+#include <functional>
 #include <vulkan/vulkan.h>
 
 #include "../engine/VIEngineStatus.hpp"
 
-
+// TODO make variables private?
+/**
+ * @brief Settings structure for data access around the engine
+ */
 struct Settings {
     inline static std::string engineName;                       ///< Engine name
     inline static std::string engineProgramName;                ///< Combined engine name and version
@@ -28,6 +31,9 @@ struct Settings {
 
     inline static bool checkPreferredGPUProperties;             ///< GPU properties references to be checked for a device
 
-    ///< GPU preferred type
-    inline static VkPhysicalDeviceType preferredGPUType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+    ///< Preferred flag bits for queue family research
+    inline static std::vector<VkQueueFlagBits> preferredFlagBits;
+
+    ///< Lambda for preferred PhysicalDevice choice
+    inline static std::function<bool(VkPhysicalDevice&)> preferredDeviceSelectionFunction;
 };

@@ -5,6 +5,9 @@
 #include "system/Settings.hpp"
 #include "engine/VIEngine.hpp"
 
+#define FMT_HEADER_ONLY
+#include <fmt/format.h>
+
 /**
  * Main function of IndirectEngine
  * @param argc number of starting arguments
@@ -13,7 +16,7 @@
  */
 int main(int argc, char** argv) {
     // Predeclaring variables
-    VIEngine engine {};
+    VIEngine engine{};
 
     // TODO read arguments
 
@@ -34,14 +37,24 @@ int main(int argc, char** argv) {
     Settings::checkPreferredGPUProperties = true;
 
     if (Settings::checkPreferredGPUProperties) {
-        Settings::preferredGPUType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+        Settings::preferredDeviceSelectionFunction = [](VkPhysicalDevice& device) {
+            VkPhysicalDeviceProperties deviceProperties;
+            vkGetPhysicalDeviceProperties(device, &deviceProperties);
+
+            return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+        };
     }
 
     if (true) {
+        // TODO get vector size and reserve before inserting
         Settings::validationLayers = {
                 "VK_LAYER_KHRONOS_validation"
         };
     }
+
+    Settings::preferredFlagBits = {
+            VK_QUEUE_GRAPHICS_BIT
+    };
 
     Settings::engineStatus = SETTINGS_LOADED;
 

@@ -13,36 +13,44 @@
 
 #include <unordered_map>
 
+// TODO write functions for creating additional devices or recreate entirely devices
+
 /**
  * @brief VIEngine class representing Vulkan engine
  */
 class VIEngine {
-    GLFWwindow* mainWindow;                         ///< GLFW window pointer
+    // TODO check multiple line comment
+    GLFWwindow* mainWindow{};                       ///< GLFW window pointer
 
-    VkInstance mainInstance;                        ///< Vulkan runtime instance
-    VkApplicationInfo applicationInfo;              ///< Vulkan application data
-    VkInstanceCreateInfo engineCreationInfo;        ///< Vulkan essential data for creation driving
+    VkInstance mainInstance{};                      ///< Vulkan runtime instance
+    VkApplicationInfo applicationInfo{};            ///< Vulkan application data
+    VkInstanceCreateInfo engineCreationInfo{};      ///< Vulkan essential data for creation procedure
 
-    VkPhysicalDevice mainPhysicalDevice;            ///< Vulkan physical device object (for actual device representation)
+    VkPhysicalDevice mainPhysicalDevice{};          ///< Vulkan physical device object (for actual device representation)
 
-    std::optional<unsigned int> mainDeviceSelectedQueueFamily;  ///< Queue family chosen for the main device
-    VkDevice mainDevice;                    ///< Vulkan logical device object (for state, resources used by instance)
+    std::optional<unsigned int> mainDeviceSelectedQueueFamily;    ///< Queue family chosen for the main device
+    VkDevice mainDevice{};                                  ///< Vulkan logical device object (for state, resources used by instance)
+    VkDeviceQueueCreateInfo mainDeviceQueueCreationInfo{};  ///< Vulkan essential data for device queue family creation procedure
+    float mainQueueFamilyPriority = 1.0f;                   ///< Main queue family priority
+    VkPhysicalDeviceFeatures mainPhysicalDeviceFeatures{};  ///< Main device features to set for chosen device
+    VkDeviceCreateInfo mainDeviceCreationInfo{};            ///< Vulkan main device object (for logical device representation)
 
-    unsigned int glfwExtensionCount;        ///< GLFW extensions count for Vulkan ext. initialisation
-    const char** glfwExtensions;            ///< GLFW extensions (APIs) to be used by Vulkan for interacting with window
+    VkQueue graphicsQueue;                                  ///< Main rendering queue
+
+    unsigned int glfwExtensionCount{};      ///< GLFW extensions count for Vulkan ext. initialisation
+    const char** glfwExtensions{};          ///< GLFW extensions (APIs) to be used by Vulkan for interacting with window
 
     /**
      * @brief VIEngine::isDeviceCompliantToQueueFamilies for device validation in terms of operation queue families
      * @tparam VkQueueFlagBits VkQueueFlagBits parameter pack
      * @param queueFamilyIndex
      * @param device VkPhysicalDevice to be checked
-     * @param flags VkQueueFlagBits to be checked if available for the given device
+     * @param flags vector list to be checked if available for the given device
      * @return true if the device is valid, false otherwise
      */
-    template<typename ... VkQueueFlagBits>
     static bool isDeviceCompliantToQueueFamilies(const VkPhysicalDevice &device,
                                                  std::optional<unsigned int>& queueFamilyIndex,
-                                                 VkQueueFlagBits&&... flags);
+                                                 std::vector<VkQueueFlagBits>& flags);
 public:
     /**
      * @brief VIEngine::initialiseGLFW for GLFW window manager initialisation

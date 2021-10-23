@@ -90,23 +90,21 @@ void VIEngine::initialiseVulkanLibraries() {
     }
 }
 
-template<typename ... VkQueueFlagBits>
 bool VIEngine::isDeviceCompliantToQueueFamilies(const VkPhysicalDevice &device,
                                                 std::optional<unsigned int>& queueFamilyIndex,
-                                                VkQueueFlagBits&&... flags) {
+                                                std::vector<VkQueueFlagBits>& flags) {
     unsigned int queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
     std::vector<VkQueueFamilyProperties> deviceQueueFamilies(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, deviceQueueFamilies.data());
 
-    std::vector<::VkQueueFlagBits> flagList(flags...);
     unsigned int foundQueueFamilyIndex = -1;
     auto item = std::find_if(deviceQueueFamilies.begin(), deviceQueueFamilies.end(),
-                             [&flagList, &foundQueueFamilyIndex](VkQueueFamilyProperties& queueFamilyProperties) {
+                             [&flags, &foundQueueFamilyIndex](VkQueueFamilyProperties& queueFamilyProperties) {
                                  ++foundQueueFamilyIndex;
-                                 return std::ranges::all_of(flagList.begin(), flagList.end(),
-                                                            [&queueFamilyProperties](::VkQueueFlagBits& flagBits) {
+                                 return std::ranges::all_of(flags.begin(), flags.end(),
+                                                            [&queueFamilyProperties](VkQueueFlagBits& flagBits) {
                                                                 return queueFamilyProperties.queueFlags & flagBits;
                                                             });
                              });
@@ -131,11 +129,14 @@ void VIEngine::preparePhysicalDevices() {
         std::vector<VkPhysicalDevice> availableDevices;
         vkEnumeratePhysicalDevices(mainInstance, &devicesCount, availableDevices.data());
 
-        // Selecting and sorting devices
+        // Boolean for checking if a device has been found
         bool areDevicesSet = false;
 
+        // Selecting and sorting devices
+        // For one device, the selection is at the beginning of availableDevices vector
         if (devicesCount == 1) {
-            if (isDeviceCompliantToQueueFamilies(availableDevices.at(0), mainDeviceSelectedQueueFamily)) {
+            if (isDeviceCompliantToQueueFamilies(availableDevices.at(0), mainDeviceSelectedQueueFamily,
+                                                 Settings::preferredFlagBits)) {
                 mainPhysicalDevice = availableDevices.at(0);
                 areDevicesSet = true;
             } else {
@@ -146,18 +147,15 @@ void VIEngine::preparePhysicalDevices() {
             while (!areDevicesSet && !availableDevices.empty()) {
                 std::vector<VkPhysicalDevice>::iterator item;
                 if (Settings::checkPreferredGPUProperties) {
+                    // If there is a specific preference,
                     item = std::find_if(availableDevices.begin(), availableDevices.end(),
-                                        [](VkPhysicalDevice& device) {
-                                            VkPhysicalDeviceProperties deviceProperties;
-                                            vkGetPhysicalDeviceProperties(device, &deviceProperties);
-
-                                            return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
-                                        });
+                                        Settings::preferredDeviceSelectionFunction);
                 } else {
                     item = availableDevices.begin();
                 }
 
-                if (isDeviceCompliantToQueueFamilies(*item, mainDeviceSelectedQueueFamily)) {
+                if (isDeviceCompliantToQueueFamilies(*item, mainDeviceSelectedQueueFamily,
+                                                     Settings::preferredFlagBits)) {
                     mainPhysicalDevice = *item;
                     areDevicesSet = true;
                 }
@@ -175,7 +173,42 @@ void VIEngine::preparePhysicalDevices() {
 }
 
 void VIEngine::createLogicDevice() {
+    if (Settings::engineStatus == VIEngineStatus::VULKAN_PHYSICAL_DEVICES_PREPARED) {
+        // Preparing command queue family for the main device
+        mainDeviceQueueCreationInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        mainDeviceQueueCreationInfo.queueFamilyIndex = mainDeviceSelectedQueueFamily.value();
+        mainDeviceQueueCreationInfo.queueCount = 1;
 
+        // Setting queue priority (array)
+        mainDeviceQueueCreationInfo.pQueuePriorities = &mainQueueFamilyPriority;
+
+        // Preparing logical device creation procedures
+        mainDeviceCreationInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        mainDeviceCreationInfo.pQueueCreateInfos = &mainDeviceQueueCreationInfo;
+        mainDeviceCreationInfo.queueCreateInfoCount = 1;
+
+        // Setting device features
+        mainDeviceCreationInfo.pEnabledFeatures = &mainPhysicalDeviceFeatures;
+
+        // Setting extensions to logic device
+        mainDeviceCreationInfo.enabledExtensionCount = 0;
+
+        // Setting validation layers to logic device
+        if (Settings::validationLayers.empty()) {
+            mainDeviceCreationInfo.enabledLayerCount = 0;
+        } else {
+            mainDeviceCreationInfo.enabledLayerCount = Settings::validationLayers.size();
+            mainDeviceCreationInfo.ppEnabledLayerNames = Settings::validationLayers.data();
+        }
+
+        VkResult creationResult = vkCreateDevice(mainPhysicalDevice, &mainDeviceCreationInfo, nullptr, &mainDevice);
+        if (creationResult != VK_SUCCESS) {
+            throw std::runtime_error("Vulkan logic device not created...");
+        }
+
+        // Obtaining graphics queue family from logic device via stored index
+        vkGetDeviceQueue(mainDevice, mainDeviceSelectedQueueFamily.value(), 0, &graphicsQueue);
+    }
 }
 
 void VIEngine::cleanEngine() {
@@ -184,15 +217,27 @@ void VIEngine::cleanEngine() {
         glfwTerminate();
 
         if (Settings::engineStatus >= VIEngineStatus::VULKAN_INSTANCE_CREATED) {
+            vkDestroyDevice(mainDevice, nullptr);
             vkDestroyInstance(mainInstance, nullptr);
         }
     }
 }
 
 void VIEngine::runEngine() {
+    if (Settings::preferredFlagBits.empty()) {
+        throw std::runtime_error("No queue family flags defined!");
+    }
+
+    if (Settings::checkPreferredGPUProperties) {
+        if (!Settings::preferredDeviceSelectionFunction) {
+            throw std::runtime_error("No preferred GPU selection function has been defined!");
+        }
+    }
+
     initialiseGLFW();
     initialiseVulkanLibraries();
     preparePhysicalDevices();
+    createLogicDevice();
 
     cleanEngine();
 }
