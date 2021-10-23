@@ -4,6 +4,12 @@
     <resolution width="1280" height="720"/>
     <language language="it" country="IT"/>
 
+    <!-- Strictness = [false,true,only_for_{}], with {} a specific feature -->
+    <requirements strictness="false">
+        <gpu type="discrete"/>
+        <memory minimum="16"/> <!-- MB -->
+    </requirements>
+
     <debug enabled="true">
         <vlayer name="VK_LAYER_KHRONOS_validation"/>
     </debug>

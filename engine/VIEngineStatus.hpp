@@ -8,8 +8,9 @@
  * VIEngineStatus enumerator for engine status
  */
 enum VIEngineStatus : unsigned int {
-    UNINITIALISED               = 0,
-    SETTINGS_LOADED             = 1,
-    GLFW_LOADED                 = 2,
-    VULKAN_INSTANCE_CREATED     = 3,
+    UNINITIALISED                       = 0,    ///< Uninitialised state
+    SETTINGS_LOADED                     = 1,    ///< Settings-only (via XML) initialised state
+    GLFW_LOADED                         = 2,    ///< GLFW window (without API) initialised state
+    VULKAN_INSTANCE_CREATED             = 3,    ///< Vulkan instanced program state
+    VULKAN_PHYSICAL_DEVICES_PREPARED    = 4,    ///< Vulkan physical device chosen state
 };

@@ -31,6 +31,12 @@ int main(int argc, char** argv) {
     Settings::xRes = 1920;
     Settings::yRes = 1080;
 
+    Settings::checkPreferredGPUProperties = true;
+
+    if (Settings::checkPreferredGPUProperties) {
+        Settings::preferredGPUType = VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+    }
+
     if (true) {
         Settings::validationLayers = {
                 "VK_LAYER_KHRONOS_validation"

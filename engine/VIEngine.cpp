@@ -90,7 +90,91 @@ void VIEngine::initialiseVulkanLibraries() {
     }
 }
 
-void VIEngine::preparePhysicalDevice() {
+template<typename ... VkQueueFlagBits>
+bool VIEngine::isDeviceCompliantToQueueFamilies(const VkPhysicalDevice &device,
+                                                std::optional<unsigned int>& queueFamilyIndex,
+                                                VkQueueFlagBits&&... flags) {
+    unsigned int queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+    std::vector<VkQueueFamilyProperties> deviceQueueFamilies(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, deviceQueueFamilies.data());
+
+    std::vector<::VkQueueFlagBits> flagList(flags...);
+    unsigned int foundQueueFamilyIndex = -1;
+    auto item = std::find_if(deviceQueueFamilies.begin(), deviceQueueFamilies.end(),
+                             [&flagList, &foundQueueFamilyIndex](VkQueueFamilyProperties& queueFamilyProperties) {
+                                 ++foundQueueFamilyIndex;
+                                 return std::ranges::all_of(flagList.begin(), flagList.end(),
+                                                            [&queueFamilyProperties](::VkQueueFlagBits& flagBits) {
+                                                                return queueFamilyProperties.queueFlags & flagBits;
+                                                            });
+                             });
+
+    if (foundQueueFamilyIndex != queueFamilyCount) {
+        queueFamilyIndex = foundQueueFamilyIndex;
+    }
+    return item != deviceQueueFamilies.end();
+}
+
+void VIEngine::preparePhysicalDevices() {
+    if (Settings::engineStatus == VIEngineStatus::VULKAN_INSTANCE_CREATED) {
+        // Looking for devices
+        unsigned int devicesCount = 0;
+        vkEnumeratePhysicalDevices(mainInstance, &devicesCount, nullptr);
+
+        // Gathering devices info
+        if (devicesCount == 0) {
+            throw std::runtime_error("No physical devices found for Vulkan rendering...");
+        }
+
+        std::vector<VkPhysicalDevice> availableDevices;
+        vkEnumeratePhysicalDevices(mainInstance, &devicesCount, availableDevices.data());
+
+        // Selecting and sorting devices
+        bool areDevicesSet = false;
+
+        if (devicesCount == 1) {
+            if (isDeviceCompliantToQueueFamilies(availableDevices.at(0), mainDeviceSelectedQueueFamily)) {
+                mainPhysicalDevice = availableDevices.at(0);
+                areDevicesSet = true;
+            } else {
+                areDevicesSet = false;
+            }
+        } else if (devicesCount > 1) {
+            // If more than one, we will look for the optimal one as first device, if requested
+            while (!areDevicesSet && !availableDevices.empty()) {
+                std::vector<VkPhysicalDevice>::iterator item;
+                if (Settings::checkPreferredGPUProperties) {
+                    item = std::find_if(availableDevices.begin(), availableDevices.end(),
+                                        [](VkPhysicalDevice& device) {
+                                            VkPhysicalDeviceProperties deviceProperties;
+                                            vkGetPhysicalDeviceProperties(device, &deviceProperties);
+
+                                            return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+                                        });
+                } else {
+                    item = availableDevices.begin();
+                }
+
+                if (isDeviceCompliantToQueueFamilies(*item, mainDeviceSelectedQueueFamily)) {
+                    mainPhysicalDevice = *item;
+                    areDevicesSet = true;
+                }
+
+                availableDevices.erase(item);
+            }
+        }
+
+        if (areDevicesSet) {
+            Settings::engineStatus = VIEngineStatus::VULKAN_PHYSICAL_DEVICES_PREPARED;
+        } else {
+            throw std::runtime_error("Error gathering devices into temporary array...");
+        }
+    }
+}
+
+void VIEngine::createLogicDevice() {
 
 }
 
@@ -108,6 +192,7 @@ void VIEngine::cleanEngine() {
 void VIEngine::runEngine() {
     initialiseGLFW();
     initialiseVulkanLibraries();
+    preparePhysicalDevices();
 
     cleanEngine();
 }
