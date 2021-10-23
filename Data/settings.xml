@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Settings>
+    <program name="IndirectEngine" majorVersion="1" minorVersion="0" patchVersion="0"/>
+    <resolution width="1280" height="720"/>
+    <language language="it" country="IT"/>
+
+    <debug enabled="true">
+        <vlayer name="VK_LAYER_KHRONOS_validation"/>
+    </debug>
+</Settings>
