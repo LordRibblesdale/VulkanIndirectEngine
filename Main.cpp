@@ -45,16 +45,16 @@ int main(int argc, char** argv) {
         };
     }
 
+    Settings::deviceExtensions = {
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME     // Enabling the possibility to swap buffers via "swap chains"
+    };
+
     if (true) {
         // TODO get vector size and reserve before inserting
         Settings::validationLayers = {
                 "VK_LAYER_KHRONOS_validation"
         };
     }
-
-    Settings::preferredFlagBits = {
-            VK_QUEUE_GRAPHICS_BIT
-    };
 
     Settings::engineStatus = SETTINGS_LOADED;
 

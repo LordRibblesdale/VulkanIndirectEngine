@@ -16,10 +16,12 @@
 #define GLFW_INCLUDE_VULKAN
 #ifdef _WIN64
 #define GLFW_EXPOSE_NATIVE_WIN32
+#define GLFW_EXPOSE_NATIVE_WGL
 #elif __linux__
-
+#define GLFW_EXPOSE_NATIVE_WAYLAND
 #endif
 #include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
 
 #include <vector>
 #include <optional>
@@ -67,17 +69,17 @@ class VIEngine {
     // Vulkan window surface
     VkSurfaceKHR surface{};                                 ///< Window surface for GLFW
 
+    static bool checkDeviceExtensionSupport(const VkPhysicalDevice& device);
+
     /**
-     * @brief VIEngine::isDeviceCompliantToQueueFamilies for device validation in terms of operation queue families
-     * @tparam VkQueueFlagBits VkQueueFlagBits parameter pack
-     * @param queueFamilyIndex
+     * @brief VIEngine::checkQueueFamilyCompatibilityWithDevice for device validation in terms of operation queue families
      * @param device VkPhysicalDevice to be checked
+     * @param surface Engine surface for checking device compatibility
      * @param flags vector list to be checked if available for the given device
      * @return true if the device is valid, false otherwise
      */
-    static bool isDeviceCompliantToQueueFamilies(const VkPhysicalDevice &device,
-                                                 std::optional<unsigned int>& queueFamilyIndex,
-                                                 std::vector<VkQueueFlagBits>& flags);
+    static bool checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice& device, VkSurfaceKHR& surface,
+                                                        std::optional<unsigned int>& queueFamilyIndex);
 public:
     /**
      * @brief VIEngine::initialiseGLFW for GLFW window manager initialisation
@@ -99,17 +101,22 @@ public:
      * @brief VIEngine::preparePhysicalDevices for Vulkan rendering device assignment
      * The main device for drawing is found and checked if it has all needed requirements for used commands in the
      *  application
+     * Note: This function can be called only if the system has all necessary initialised Vulkan libraries
      */
     void preparePhysicalDevices();
 
     /**
      * @brief VIEngine::createLogicDevice create the runtime instance of a physical device, for runtime device own state
      * From the physical device, a logic device is created and the graphics queue is obtained
+     * Note: This function can be called only if the system has a set main physical device
      */
     void createLogicDevice();
 
     /**
-     * @brief VIEngine::prepareWindowSurface
+     * @brief VIEngine::prepareWindowSurface provides to GLFW the native window handle for Vulkan window attachment
+     * The function chooses the correct operative system and the native handle is produced and provided to Vulkan to
+     *  communicate with GLFW
+     * Note: This function can be called only if the system has all necessary initialised Vulkan libraries
      */
     void prepareWindowSurface();
 
