@@ -27,6 +27,8 @@ struct Settings {
     inline static unsigned int xRes;                            ///< Horizontal window resolution
     inline static unsigned int yRes;                            ///< Vertical window resolution
 
+    inline static FrameLimitHandler frameHandler;               ///< Frame limiter handler
+
     inline static VIEStatus engineStatus;                       ///< Program status
     inline static std::vector<const char*> validationLayers;    ///< Vulkan validation layers for text/debug output
     inline static std::vector<const char*> deviceExtensions;    ///< Vulkan device extensions for additional API support
@@ -38,4 +40,8 @@ struct Settings {
 
     ///< Lambda for preferred PhysicalDevice choice
     inline static std::function<bool(VkPhysicalDevice&)> preferredDeviceSelectionFunction;
+
+    inline static std::vector<VkQueueFlagBits> defaultFlags;
+    inline static std::vector<VkFormat> defaultFormats;
+    inline static VkColorSpaceKHR defaultColorSpace;
 };

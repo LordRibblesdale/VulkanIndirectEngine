@@ -28,8 +28,6 @@ void VIEngine::initialiseGLFW() {
         glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
         Settings::engineStatus = GLFW_LOADED;
-    } else {
-        // TODO handle cases of multiple calls
     }
 }
 
@@ -65,9 +63,9 @@ void VIEngine::initialiseVulkanLibraries() {
             std::erase_if(Settings::validationLayers, [&availableInSystemLayers](const char*& requestedLayer){
                 std::string requestedLayerStr(requestedLayer);
                 auto foundLayer = std::find_if(availableInSystemLayers.begin(), availableInSystemLayers.end(),
-                                         [&requestedLayerStr](VkLayerProperties& properties) {
-                                             return requestedLayerStr == properties.layerName;
-                                         });
+                                               [&requestedLayerStr](VkLayerProperties& properties) {
+                                                   return requestedLayerStr == properties.layerName;
+                                               });
 
                 return foundLayer == availableInSystemLayers.end();
             });
@@ -89,8 +87,6 @@ void VIEngine::initialiseVulkanLibraries() {
         }
 
         Settings::engineStatus = VULKAN_INSTANCE_CREATED;
-    } else {
-        // TODO handle cases of multiple calls
     }
 }
 
@@ -136,15 +132,18 @@ bool VIEngine::checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &d
             // Checking if there is the interested queue family with requested flags and with surface support
             std::find_if(deviceQueueFamilies.begin(), deviceQueueFamilies.end(),
                          [&foundQueueFamilyIndex, &device, &surface] (VkQueueFamilyProperties& queueFamilyProperties) {
+                             std::function<bool(VkQueueFlagBits&)> flagsContainsFunction([&queueFamilyProperties](VkQueueFlagBits& flagBits) {
+                                 return queueFamilyProperties.queueFlags & flagBits;
+                             });
                              // Keeping track of queue family index
                              ++foundQueueFamilyIndex;
-                             
-                             bool areAllBitsSupported =
-                                     std::ranges::all_of(Settings::preferredFlagBits.begin(),
-                                                         Settings::preferredFlagBits.end(),
-                                                         [&queueFamilyProperties](VkQueueFlagBits& flagBits) {
-                                                             return queueFamilyProperties.queueFlags & flagBits;
-                                                         });
+
+                             bool areAllBitsSupported = std::ranges::all_of(Settings::defaultFlags.begin(),
+                                                                            Settings::defaultFlags.end(),
+                                                                            flagsContainsFunction) &&
+                                                        std::ranges::all_of(Settings::preferredFlagBits.begin(),
+                                                                            Settings::preferredFlagBits.end(),
+                                                                            flagsContainsFunction);
 
                              VkBool32 isSurfaceSupported = false;
                              vkGetPhysicalDeviceSurfaceSupportKHR(device, foundQueueFamilyIndex, surface, &isSurfaceSupported);
@@ -158,9 +157,37 @@ bool VIEngine::checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &d
     return foundQueueFamily != deviceQueueFamilies.end();
 }
 
+bool VIEngine::checkSurfaceCapabilitiesFromDevice(const VkPhysicalDevice& device, VkSurfaceKHR& surface,
+                                                  VkSurfaceCapabilitiesKHR& surfaceCapabilities,
+                                                  std::vector<VkSurfaceFormatKHR>& surfaceAvailableFormats,
+                                                  std::vector<VkPresentModeKHR>& surfacePresentationModes) {
+    // Obtaining all capabilities of a surface, depending on the linked device
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &surfaceCapabilities);
+
+    unsigned int formatCount;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+
+    if (formatCount != 0) {
+        surfaceAvailableFormats.resize(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount,
+                                             surfaceAvailableFormats.data());
+    }
+
+    unsigned int presentModeCount;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+
+    if (presentModeCount != 0) {
+        surfacePresentationModes.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount,
+                                                  surfacePresentationModes.data());
+    }
+
+    return formatCount != 0 && presentModeCount != 0;
+}
+
 // TODO set as "prepareMainPhysicalDevice"
 void VIEngine::preparePhysicalDevices() {
-    if (Settings::engineStatus == VIEStatus::VULKAN_INSTANCE_CREATED) {
+    if (Settings::engineStatus == VIEStatus::VULKAN_SURFACE_CREATED) {
         // Looking for devices
         unsigned int devicesCount = 0;
         vkEnumeratePhysicalDevices(mainInstance, &devicesCount, nullptr);
@@ -184,13 +211,18 @@ void VIEngine::preparePhysicalDevices() {
                     continue;
                 }
             }
-            
-            bool isDeviceCompatibleWithExtensions = checkDeviceExtensionSupport(device);
-            
-            bool isDeviceCompatibleWithQueueFamily = checkQueueFamilyCompatibilityWithDevice(device, surface,
-                                                                                             mainDeviceSelectedQueueFamily);
 
-            if (isDeviceCompatibleWithExtensions && isDeviceCompatibleWithQueueFamily) {
+            bool isDeviceCompatibleWithExtensions = checkDeviceExtensionSupport(device);
+
+            bool isDeviceCompatibleWithQueueFamily =
+                    checkQueueFamilyCompatibilityWithDevice(device, surface, mainDeviceSelectedQueueFamily);
+
+            bool isSurfaceSwapChainBasicSupportAvailable =
+                    checkSurfaceCapabilitiesFromDevice(device, surface, surfaceCapabilities,
+                                                       surfaceAvailableFormats, surfacePresentationModes);
+
+            if (isDeviceCompatibleWithExtensions && isDeviceCompatibleWithQueueFamily
+                && isSurfaceSwapChainBasicSupportAvailable) {
                 mainPhysicalDevice = device;
                 areDevicesSet = true;
             }
@@ -201,8 +233,6 @@ void VIEngine::preparePhysicalDevices() {
         } else {
             throw std::runtime_error("Error looking for physical device...");
         }
-    } else {
-        // TODO handle cases of multiple calls
     }
 }
 
@@ -268,8 +298,35 @@ void VIEngine::prepareWindowSurface() {
 #elif __linux__
         VkWaylandSurfaceCreateInfoKHR waylandWindowSurfaceCreationInfo{};
 #endif
-    } else {
-        // TODO handle cases of multiple calls
+
+        Settings::engineStatus = VIEStatus::VULKAN_SURFACE_CREATED;
+    }
+}
+
+void VIEngine::prepareSwapChainFormatAndPresent() {
+    if (Settings::engineStatus >= VIEStatus::VULKAN_PHYSICAL_DEVICES_PREPARED) {
+        // Selecting surface format (channels and color space)
+        auto foundSurfaceFormat = std::find_if(surfaceAvailableFormats.begin(), surfaceAvailableFormats.end(),
+                                               [](VkSurfaceFormatKHR& surfaceFormat) {
+                                                   return (std::find(Settings::defaultFormats.begin(),
+                                                                     Settings::defaultFormats.end(),
+                                                                     surfaceFormat.format) != Settings::defaultFormats.end())
+                                                          && surfaceFormat.colorSpace == Settings::defaultColorSpace;
+                                               });
+
+        chosenSurfaceFormat = (foundSurfaceFormat == surfaceAvailableFormats.end()) ? *foundSurfaceFormat
+                                                                                    : surfaceAvailableFormats.at(0);
+
+        // Selecting presentation mode by a swap chain (describing how and when images are represented on screen)
+
+        switch (Settings::frameHandler) {
+            case IMMEDIATE:
+                break;
+            case VSYNC:
+                break;
+            case TRIPLE_BUFFER:
+                break;
+        }
     }
 }
 
@@ -286,11 +343,15 @@ void VIEngine::cleanEngine() {
     }
 }
 
-void VIEngine::runEngine() {
-    if (std::find(Settings::preferredFlagBits.begin(), Settings::preferredFlagBits.end(), VK_QUEUE_GRAPHICS_BIT)
-            == Settings::preferredFlagBits.end()) {
-        Settings::preferredFlagBits.emplace_back(VK_QUEUE_GRAPHICS_BIT);
-    }
+void VIEngine::prepareEngine() {
+    Settings::defaultFlags.emplace_back(VK_QUEUE_GRAPHICS_BIT);
+
+    Settings::defaultFormats.emplace_back(VK_FORMAT_R8_SRGB);
+    Settings::defaultFormats.emplace_back(VK_FORMAT_R8G8B8A8_SRGB);
+
+    Settings::defaultColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+
+    Settings::deviceExtensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
     if (Settings::checkPreferredGPUProperties) {
         if (!Settings::preferredDeviceSelectionFunction) {
@@ -304,6 +365,13 @@ void VIEngine::runEngine() {
     prepareWindowSurface();
     preparePhysicalDevices();
     createLogicDevice();
+    prepareSwapChainFormatAndPresent();
 
+    // TODO import models (using lambdas to describe how to convert personal vector structure to internal drawing struct
+
+    // TODO set a runEngine function (with lambdas for describing some parts (the order of drawing, how to do it, with
+    //  a list of functions???)
+
+    // TODO move cleanEngine to a program closing callback
     cleanEngine();
 }

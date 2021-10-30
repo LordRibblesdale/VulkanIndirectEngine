@@ -34,7 +34,7 @@
  * @brief VIEngine class representing Vulkan engine
  */
 class VIEngine {
-    // TODO check multiple line comment
+    // TODO check which of these elements could be freed from memory after prepareEngine
     // GLFW
     GLFWwindow* mainWindow{};                               ///< GLFW window pointer
     unsigned int glfwExtensionCount{};                      ///< GLFW extensions count for Vulkan ext. initialisation
@@ -68,6 +68,14 @@ class VIEngine {
 
     // Vulkan window surface
     VkSurfaceKHR surface{};                                 ///< Window surface for GLFW
+    VkSurfaceCapabilitiesKHR surfaceCapabilities{};         ///< Window surface capabilities for swap chain implementation
+    VkSurfaceFormatKHR chosenSurfaceFormat{};               ///< Window surface chosen format and color space
+    VkPresentModeKHR chosenSurfacePresentationMode{};       /**< Window surface images refresh and representation mode
+                                                             *    on surface */
+
+    // Device available parameters
+    std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;    ///< List of available color formats for swap chain
+    std::vector<VkPresentModeKHR> surfacePresentationModes;     ///< List of available presentation modes for the surface
 
     static bool checkDeviceExtensionSupport(const VkPhysicalDevice& device);
 
@@ -80,12 +88,23 @@ class VIEngine {
      */
     static bool checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice& device, VkSurfaceKHR& surface,
                                                         std::optional<unsigned int>& queueFamilyIndex);
-public:
+
+    /**
+     * @brief VIEngine::checkSurfaceCapabilitiesFromDevice
+     * @param device
+     * @param surface
+     * @param surfaceAvailableFormats
+     * @param surfacePresentationModes
+     */
+    static bool checkSurfaceCapabilitiesFromDevice(const VkPhysicalDevice& device, VkSurfaceKHR& surface,
+                                                   VkSurfaceCapabilitiesKHR& surfaceCapabilities,
+                                                   std::vector<VkSurfaceFormatKHR>& surfaceAvailableFormats,
+                                                   std::vector<VkPresentModeKHR>& surfacePresentationModes);
+
     /**
      * @brief VIEngine::initialiseGLFW for GLFW window manager initialisation
      * A GLFW window is initialised by glfwInit and main properties are assigned to it. The program status is changed
      *  accordingly.
-     * Note: This function can be called only if the system has only main settings in order to initialise the window
      */
     void initialiseGLFW();
 
@@ -93,7 +112,6 @@ public:
      * @brief VIEngine::initialiseVulkanLibraries for Vulkan structures initialisation
      * All main Vulkan objects are initialised (application info, data structure for instance creation instructions,
      *  validation layers (API for text/debug options)).
-     * Note: This function can be called only if the system has a GLFW window initialised
      */
     void initialiseVulkanLibraries();
 
@@ -101,14 +119,12 @@ public:
      * @brief VIEngine::preparePhysicalDevices for Vulkan rendering device assignment
      * The main device for drawing is found and checked if it has all needed requirements for used commands in the
      *  application
-     * Note: This function can be called only if the system has all necessary initialised Vulkan libraries
      */
     void preparePhysicalDevices();
 
     /**
      * @brief VIEngine::createLogicDevice create the runtime instance of a physical device, for runtime device own state
      * From the physical device, a logic device is created and the graphics queue is obtained
-     * Note: This function can be called only if the system has a set main physical device
      */
     void createLogicDevice();
 
@@ -116,19 +132,23 @@ public:
      * @brief VIEngine::prepareWindowSurface provides to GLFW the native window handle for Vulkan window attachment
      * The function chooses the correct operative system and the native handle is produced and provided to Vulkan to
      *  communicate with GLFW
-     * Note: This function can be called only if the system has all necessary initialised Vulkan libraries
      */
     void prepareWindowSurface();
+
+    /**
+     *
+     */
+    void prepareSwapChainFormatAndPresent();
 
     /**
      * @brief VIEngine::cleanEngine for cleaning all structures and window pointers
      * All structures created during the engine runtime are destroyed at the end.
      */
     void cleanEngine();
-
+public:
     /**
-     * @brief VIEngine::runEngine for running up all processes (initialisation, preparation, running, cleaning)
-     * This function collects all functions needed for running the engine, from initialisation, to drawing, to cleaning.
+     * @brief VIEngine::prepareEngine for running up all processes (initialisation, preparation, running, cleaning)
+     * This function collects all functions needed for running the engine, from initialisation, to drawing, to cleaning
      */
-    void runEngine();
+    void prepareEngine();
 };

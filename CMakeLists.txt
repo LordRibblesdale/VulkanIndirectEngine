@@ -6,15 +6,15 @@ set(CMAKE_CXX_STANDARD 20)
 message("Welcome to IndirectEngine CMake script - CMakeVersion ${CMAKE_VERSION} CPPStandard ${CMAKE_CXX_STANDARD}")
 
 message("- Locating source files...")
-message("-> Locating engine source files...")
 file(GLOB_RECURSE engine "engine/*.cpp" "engine/*.hpp")
-message("-> Locating XML parser source files...")
 file(GLOB_RECURSE xml "xml/*.cpp" "xml.hpp")
+file(GLOB_RECURSE system "system/*.hpp")
 
 message("- Adding source files into project...")
 add_executable(${PROJECT_NAME}
         ${engine}
         ${xml}
+        ${system}
         Main.cpp)
 
 message("")

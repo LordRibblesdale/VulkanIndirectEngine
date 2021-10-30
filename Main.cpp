@@ -18,14 +18,11 @@ int main(int argc, char** argv) {
     // Predeclaring variables
     VIEngine engine{};
 
-    // TODO read arguments
-
     // Starting from uninitialised state
     Settings::engineStatus = UNINITIALISED;
 
-    // TODO call XML parser
     // Reading settings
-    Settings::engineName = "IndirectEngine";
+    Settings::engineName = "VulkanIndirectEngine";
     Settings::engineMajorVersion = 1;
     Settings::engineMinorVersion = 0;
     Settings::enginePatchVersion = 0;
@@ -33,6 +30,8 @@ int main(int argc, char** argv) {
                                               Settings::engineMinorVersion, Settings::enginePatchVersion);
     Settings::xRes = 1920;
     Settings::yRes = 1080;
+
+    Settings::frameHandler = TRIPLE_BUFFER;
 
     Settings::checkPreferredGPUProperties = true;
 
@@ -45,10 +44,6 @@ int main(int argc, char** argv) {
         };
     }
 
-    Settings::deviceExtensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME     // Enabling the possibility to swap buffers via "swap chains"
-    };
-
     if (true) {
         // TODO get vector size and reserve before inserting
         Settings::validationLayers = {
@@ -59,5 +54,5 @@ int main(int argc, char** argv) {
     Settings::engineStatus = SETTINGS_LOADED;
 
     // Initialising engine
-    engine.runEngine();
+    engine.prepareEngine();
 }

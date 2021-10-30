@@ -4,6 +4,9 @@
     <resolution width="1280" height="720"/>
     <language language="it" country="IT"/>
 
+    <!-- Limit: number of frames per second, type=[off,vsync,triple] -->
+    <framerate limit="144" type="vsync"/>
+
     <!-- Strictness = [false,true,only_for_{}], with {} a specific feature -->
     <requirements strictness="false">
         <gpu type="discrete"/>
