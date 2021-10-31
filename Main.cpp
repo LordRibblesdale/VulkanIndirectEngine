@@ -18,9 +18,6 @@ int main(int argc, char** argv) {
     // Predeclaring variables
     VIEngine engine{};
 
-    // Starting from uninitialised state
-    Settings::engineStatus = UNINITIALISED;
-
     // Reading settings
     Settings::engineName = "VulkanIndirectEngine";
     Settings::engineMajorVersion = 1;
@@ -51,7 +48,7 @@ int main(int argc, char** argv) {
         };
     }
 
-    Settings::engineStatus = SETTINGS_LOADED;
+    Settings::engineStatus = VIEStatus::SETTINGS_LOADED;
 
     // Initialising engine
     engine.prepareEngine();
