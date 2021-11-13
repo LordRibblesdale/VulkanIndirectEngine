@@ -49,7 +49,8 @@ class VIEngine {
     // Vulkan physical device
     VkPhysicalDevice mainPhysicalDevice{};                  /**< Vulkan physical device object (for actual device
                                                              *    representation) */
-    std::optional<unsigned int> mainDeviceSelectedQueueFamily;    ///< Queue family chosen for the main device
+    std::optional<unsigned int> mainDeviceSelectedQueueFamily;      ///< Queue family chosen for the main device
+    std::optional<unsigned int> mainDeviceSelectedPresentFamily;    ///< Present family chosen for the mail device
     VkPhysicalDeviceFeatures mainPhysicalDeviceFeatures{};  ///< Main device features to set for chosen device
 
     // Vulkan logic device
@@ -65,6 +66,7 @@ class VIEngine {
 
     // Vulkan graphics queue
     VkQueue graphicsQueue{};                                ///< Main rendering queue
+    VkQueue presentQueue{};                                 ///< Main frame representation queue
 
     // Vulkan window surface
     VkSurfaceKHR surface{};                                 ///< Window surface for GLFW
@@ -72,6 +74,10 @@ class VIEngine {
     VkSurfaceFormatKHR chosenSurfaceFormat{};               ///< Window surface chosen format and color space
     VkPresentModeKHR chosenSurfacePresentationMode{};       /**< Window surface images refresh and representation mode
                                                              *    on surface */
+    VkExtent2D chosenSwapExtent{};                          ///< TODO complete here
+    VkSwapchainCreateInfoKHR swapChainCreationInfo{};       ///< TODO complete here
+
+    VkSwapchainKHR mainSwapChain;                           ///< TODO complete here
 
     // Device available parameters
     std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;    ///< List of available color formats for swap chain
@@ -87,7 +93,8 @@ class VIEngine {
      * @return true if the device is valid, false otherwise
      */
     static bool checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice& device, VkSurfaceKHR& surface,
-                                                        std::optional<unsigned int>& queueFamilyIndex);
+                                                        std::optional<unsigned int>& queueFamilyIndex,
+                                                        std::optional<unsigned int>& presentQueueFamilyIndex);
 
     /**
      * @brief VIEngine::checkSurfaceCapabilitiesFromDevice
@@ -136,9 +143,14 @@ class VIEngine {
     void prepareWindowSurface();
 
     /**
-     *
+     * TODO
      */
-    void prepareSwapChainFormatAndPresent();
+    void prepareSwapChain();
+
+    /**
+     * TODO
+     */
+    void prepareImageViews();
 
     /**
      * @brief VIEngine::cleanEngine for cleaning all structures and window pointers

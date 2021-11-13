@@ -116,7 +116,8 @@ bool VIEngine::checkDeviceExtensionSupport(const VkPhysicalDevice& device) {
 }
 
 bool VIEngine::checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &device, VkSurfaceKHR &surface,
-                                                       std::optional<unsigned int>& queueFamilyIndex) {
+                                                       std::optional<unsigned int>& queueFamilyIndex,
+                                                       std::optional<unsigned int>& presentQueueFamilyIndex) {
     unsigned int queueFamilyCount = 0;
     // Getting number of supported queue families
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
@@ -130,7 +131,8 @@ bool VIEngine::checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &d
     // Checking if there is the interested queue family with requested flags and with surface support
     auto foundQueueFamily =
             std::ranges::find_if(deviceQueueFamilies,
-                                 [&foundQueueFamilyIndex, &device, &surface] (const VkQueueFamilyProperties& queueFamilyProperties) {
+                                 [&foundQueueFamilyIndex, &presentQueueFamilyIndex, &device, &surface]
+                                 (const VkQueueFamilyProperties& queueFamilyProperties) {
                                      std::function<bool(const VkQueueFlagBits&)> flagsContainsFunction(
                                              [&queueFamilyProperties](const VkQueueFlagBits& flagBits) {
                                          return queueFamilyProperties.queueFlags & flagBits;
@@ -143,7 +145,12 @@ bool VIEngine::checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &d
                                              std::ranges::all_of(Settings::preferredFlagBits, flagsContainsFunction);
 
                                      VkBool32 isSurfaceSupported = false;
-                                     vkGetPhysicalDeviceSurfaceSupportKHR(device, foundQueueFamilyIndex, surface, &isSurfaceSupported);
+                                     vkGetPhysicalDeviceSurfaceSupportKHR(device, foundQueueFamilyIndex, surface,
+                                                                          &isSurfaceSupported);
+
+                                     if (isSurfaceSupported) {
+                                         presentQueueFamilyIndex = foundQueueFamilyIndex;
+                                     }
 
                                      return areAllBitsSupported && isSurfaceSupported;
                                  });
@@ -211,7 +218,8 @@ void VIEngine::preparePhysicalDevices() {
             bool isDeviceCompatibleWithExtensions = checkDeviceExtensionSupport(device);
 
             bool isDeviceCompatibleWithQueueFamily =
-                    checkQueueFamilyCompatibilityWithDevice(device, surface, mainDeviceSelectedQueueFamily);
+                    checkQueueFamilyCompatibilityWithDevice(device, surface, mainDeviceSelectedQueueFamily,
+                                                            mainDeviceSelectedPresentFamily);
 
             bool isSurfaceSwapChainBasicSupportAvailable =
                     checkSurfaceCapabilitiesFromDevice(device, surface, surfaceCapabilities,
@@ -271,6 +279,7 @@ void VIEngine::createLogicDevice() {
 
         // Obtaining graphics queue family from logic device via stored index
         vkGetDeviceQueue(mainDevice, mainDeviceSelectedQueueFamily.value(), 0, &graphicsQueue);
+        vkGetDeviceQueue(mainDevice, mainDeviceSelectedPresentFamily.value(), 0, &presentQueue);
 
         Settings::engineStatus = VIEStatus::VULKAN_DEVICE_CREATED;
     }
@@ -299,7 +308,7 @@ void VIEngine::prepareWindowSurface() {
     }
 }
 
-void VIEngine::prepareSwapChainFormatAndPresent() {
+void VIEngine::prepareSwapChain() {
     if (Settings::engineStatus >= VIEStatus::VULKAN_PHYSICAL_DEVICES_PREPARED) {
         // Selecting surface format (channels and color space)
         auto foundSurfaceFormat =
@@ -315,15 +324,70 @@ void VIEngine::prepareSwapChainFormatAndPresent() {
                                                                                     : surfaceAvailableFormats.at(0);
 
         // Selecting presentation mode by a swap chain (describing how and when images are represented on screen)
+        auto foundSurfacePresentation = std::ranges::find(surfacePresentationModes, Settings::refreshMode);
+        chosenSurfacePresentationMode = (foundSurfacePresentation != surfacePresentationModes.end()) ?
+                                        *foundSurfacePresentation : VK_PRESENT_MODE_FIFO_KHR;
 
-        switch (Settings::frameHandler) {
-            case IMMEDIATE:
-                break;
-            case VSYNC:
-                break;
-            case TRIPLE_BUFFER:
-                break;
+        // Selecting swap extent (resolution of the swap chain images in pixels)
+        if (surfaceCapabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+            chosenSwapExtent = surfaceCapabilities.currentExtent;
+        } else {
+            int width;
+            int height;
+            glfwGetFramebufferSize(mainWindow, &width, &height);
+
+            chosenSwapExtent.width = std::clamp(static_cast<uint32_t>(width),
+                                                surfaceCapabilities.minImageExtent.width,
+                                                surfaceCapabilities.maxImageExtent.width);
+            chosenSwapExtent.height = std::clamp(static_cast<uint32_t>(height),
+                                                 surfaceCapabilities.minImageExtent.height,
+                                                 surfaceCapabilities.maxImageExtent.height);
         }
+
+        // Setting the number of images that the swap chain needs to create, depending on a necessary minimum and maximum
+        unsigned int swapChainImagesCount = std::min(surfaceCapabilities.minImageCount + 1,
+                                                     surfaceCapabilities.maxImageCount);
+
+        // Settings how swap chain will be created
+        swapChainCreationInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+        swapChainCreationInfo.surface = surface;
+        swapChainCreationInfo.minImageCount = swapChainImagesCount;
+        swapChainCreationInfo.imageFormat = chosenSurfaceFormat.format;
+        swapChainCreationInfo.imageColorSpace = chosenSurfaceFormat.colorSpace;
+        swapChainCreationInfo.imageExtent = chosenSwapExtent;
+        swapChainCreationInfo.imageArrayLayers = 1;
+        swapChainCreationInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        // swapChainCreationInfo.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+        // Choosing frame handling mode by swap chain
+        std::array<unsigned int, 2> queueIndices({mainDeviceSelectedQueueFamily.value(),
+                                                  mainDeviceSelectedPresentFamily.value()});
+
+        if (mainDeviceSelectedQueueFamily != mainDeviceSelectedPresentFamily) {
+            swapChainCreationInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+            swapChainCreationInfo.queueFamilyIndexCount = 2;
+            swapChainCreationInfo.pQueueFamilyIndices = queueIndices.data();
+        } else {
+            swapChainCreationInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        }
+
+        // Frame transform on surface swap chain
+        swapChainCreationInfo.preTransform = surfaceCapabilities.currentTransform;
+        swapChainCreationInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+
+        swapChainCreationInfo.presentMode = chosenSurfacePresentationMode;
+        swapChainCreationInfo.clipped = VK_TRUE;
+
+        swapChainCreationInfo.oldSwapchain = VK_NULL_HANDLE;
+
+        if (vkCreateSwapchainKHR(mainDevice, &swapChainCreationInfo, nullptr, &mainSwapChain)) {
+            throw std::runtime_error("Cannot create swap chain for main device!");
+        }
+
+        Settings::engineStatus = VIEStatus::VULKAN_SWAP_CHAIN_CREATED;
+
+        // TODO https://vulkan-tutorial.com/en/Drawing_a_triangle/Presentation/Swap_chain get swap chain images?
+        // TODO https://vulkan-tutorial.com/en/Drawing_a_triangle/Presentation/Image_views get textures for other parts? example shadow mapping?
     }
 }
 
@@ -333,6 +397,10 @@ void VIEngine::cleanEngine() {
         glfwTerminate();
 
         if (Settings::engineStatus >= VIEStatus::VULKAN_INSTANCE_CREATED) {
+            if (Settings::engineStatus >= VIEStatus::VULKAN_SWAP_CHAIN_CREATED) {
+                vkDestroySwapchainKHR(mainDevice, mainSwapChain, nullptr);
+            }
+
             vkDestroySurfaceKHR(mainInstance, surface, nullptr);
             vkDestroyDevice(mainDevice, nullptr);
             vkDestroyInstance(mainInstance, nullptr);
@@ -360,9 +428,9 @@ void VIEngine::prepareEngine() {
     prepareWindowSurface();
     preparePhysicalDevices();
     createLogicDevice();
-    prepareSwapChainFormatAndPresent();
+    prepareSwapChain();
 
-    // TODO import models (using lambdas to describe how to convert personal vector structure to internal drawing struct
+    // TODO import models (using lambdas to describe how to convert personal vector structure to internal drawing struct)
 
     // TODO set a runEngine function (with lambdas for describing some parts (the order of drawing, how to do it, with
     //  a list of functions???)

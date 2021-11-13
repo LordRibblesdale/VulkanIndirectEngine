@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
     Settings::xRes = 1920;
     Settings::yRes = 1080;
 
-    Settings::frameHandler = TRIPLE_BUFFER;
+    Settings::refreshMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 
     Settings::checkPreferredGPUProperties = true;
 

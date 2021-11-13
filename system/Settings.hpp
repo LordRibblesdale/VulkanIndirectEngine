@@ -27,7 +27,7 @@ struct Settings {
     inline static unsigned int xRes;                            ///< Horizontal window resolution
     inline static unsigned int yRes;                            ///< Vertical window resolution
 
-    inline static FrameLimitHandler frameHandler;               ///< Frame limiter handler
+    inline static VkPresentModeKHR refreshMode;               ///< Frame limiter handler
 
     ///< Program status
     inline static VIEStatus engineStatus = VIEStatus::UNINITIALISED;
