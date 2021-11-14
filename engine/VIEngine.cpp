@@ -313,12 +313,12 @@ void VIEngine::prepareWindowSurface() {
         VkWin32SurfaceCreateInfoKHR ntWindowSurfaceCreationInfo{};
         ntWindowSurfaceCreationInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
         // Requesting a "Handle to a window" native Windows object
-        ntWindowSurfaceCreationInfo.hwnd = glfwGetWin32Window(mainWindow);
+        ntWindowSurfaceCreationInfo.hwnd = glfwGetWin32Window(mNativeWindow.mainWindow);
         // Providing a native NT instance
         ntWindowSurfaceCreationInfo.hinstance = GetModuleHandle(nullptr);
 
-        if (VkResult result = vkCreateWin32SurfaceKHR(mainInstance, &ntWindowSurfaceCreationInfo, nullptr, &surface);
-                result != VK_SUCCESS) {
+        if (vkCreateWin32SurfaceKHR(mVulkanLibraries.mainInstance, &ntWindowSurfaceCreationInfo, nullptr,
+                                    &mSurface.surface) != VK_SUCCESS) {
             throw VIERunException("Cannot create native NT window surface to bind to Vulkan...", Settings::engineStatus);
         }
 #elif __linux__
