@@ -460,8 +460,10 @@ void VIEngine::prepareEngine() {
         prepareMainPhysicalDevices();
         createLogicDevice();
         prepareSwapChain();
-    } catch (VIERunException& e) {
-        std::cout << fmt::format("VIERunException::what(): {}\nCleaning and closing engine.", e.what());
+    } catch (const VIERunException& e) {
+        std::cout << fmt::format("VIERunException::what(): {}\nCleaning and closing engine.\n", e.what());
+    } catch (const std::exception& e) {
+        std::cout << e.what() << std::endl;
     }
 
 
