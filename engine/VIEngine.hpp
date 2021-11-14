@@ -49,7 +49,7 @@ struct VIEModuleMainPhysicalDevice {
     VkPhysicalDeviceFeatures mainPhysicalDeviceFeatures{};          ///< Main device features to set for chosen device
     std::optional<unsigned int> mainDeviceSelectedQueueFamily;      ///< Queue family chosen for the main device
     std::optional<unsigned int> mainDeviceSelectedPresentFamily;    ///< Present family chosen for the mail device
-    std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;
+    std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;        ///< List of available surface color spaces for the surface
     std::vector<VkPresentModeKHR> surfacePresentationModes;         ///< List of available presentation modes for the surface
 };
 
@@ -94,6 +94,12 @@ class VIEngine {
     // Vulkan logic device
     VIEModuleMainLogicalDevice mLogicDevice;                ///< Module for main logic device
 
+    // Vulkan window surface
+    VIEModuleSurface mSurface;                              ///< Module for rendering window surface
+
+    // Vulkan swap chain
+    VIEModuleSwapChain mSwapChain;                          ///< Module for rendering
+
     // Vulkan queue family
     float mainQueueFamilyPriority = 1.0f;                   ///< Main queue family priority
 
@@ -101,21 +107,16 @@ class VIEngine {
     VkQueue graphicsQueue{};                                ///< Main rendering queue
     VkQueue presentQueue{};                                 ///< Main frame representation queue
 
-    // Vulkan window surface
-    VIEModuleSurface mSurface;                              ///< TODO
-
-    // Vulkan swap chain
-    VIEModuleSwapChain mSwapChain;                          ///< TODO
-
     /**
-     * TODO complete documentation
-     * @param device
-     * @return
+     * @brief VIEngine::checkDeviceExtensionSupport checks if a device supports the defined list of Vulkan extensions
+     * @param device VkPhysicalDevice to be checked
+     * @return true if the device is compatible, false otherwise
      */
     static bool checkDeviceExtensionSupport(const VkPhysicalDevice& device);
 
     /**
-     * @brief VIEngine::checkQueueFamilyCompatibilityWithDevice for device validation in terms of operation queue families
+     * @brief VIEngine::checkQueueFamilyCompatibilityWithDevice checks if a device is compatible with specified queue
+     *          families
      * @param device VkPhysicalDevice to be checked
      * @param surface Engine surface for checking device compatibility
      * @param flags vector list to be checked if available for the given device
@@ -126,11 +127,12 @@ class VIEngine {
                                                         std::optional<unsigned int>& presentQueueFamilyIndex);
 
     /**
-     * @brief VIEngine::checkSurfaceCapabilitiesFromDevice
-     * @param device
-     * @param surface
-     * @param surfaceAvailableFormats
-     * @param surfacePresentationModes
+     * @brief VIEngine::checkSurfaceCapabilitiesFromDevice checks if a surface, related to its device, supports a set of
+     *          defined color spaces and frame presentation modes
+     * @param device VKPhysicalDevice to be checked
+     * @param surface VkSurfaceKHR to be checked
+     * @param surfaceAvailableFormats list of required surface formats
+     * @param surfacePresentationModes list of required presentation modes
      */
     static bool checkSurfaceCapabilitiesFromDevice(const VkPhysicalDevice& device, VkSurfaceKHR& surface,
                                                    VkSurfaceCapabilitiesKHR& surfaceCapabilities,
