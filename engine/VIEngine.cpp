@@ -4,6 +4,7 @@
 
 #include "VIEngine.hpp"
 #include "../system/Settings.hpp"
+#include "VIERunException.hpp"
 
 #define FMT_HEADER_ONLY
 #include <fmt/format.h>
@@ -112,7 +113,7 @@ void VIEngine::initialiseGLFW() {
     if (Settings::engineStatus == VIEStatus::SETTINGS_LOADED) {
         // GLFW initialisation
         if (!glfwInit()) {
-            throw std::runtime_error("GLFW not initialised...");
+            throw VIERunException("GLFW not initialised...", Settings::engineStatus);
         }
 
         // Hinting GLFW to not load APIs (Vulkan APIs not defined in GLFW)
@@ -123,13 +124,15 @@ void VIEngine::initialiseGLFW() {
                                                     Settings::engineProgramName.c_str(), nullptr, nullptr);
 
         if (!mNativeWindow.mainWindow) {
-            throw std::runtime_error("GLFW window not initialised...");
+            throw VIERunException("GLFW window not initialised...", Settings::engineStatus);
         }
 
         // Getting extensions from GLFW for Vulkan implementation
         mNativeWindow.glfwExtensions = glfwGetRequiredInstanceExtensions(&mNativeWindow.glfwExtensionCount);
 
         Settings::engineStatus = VIEStatus::GLFW_LOADED;
+    } else {
+        throw VIERunException("Engine not in SETTINGS_LOADED status.", Settings::engineStatus);
     }
 }
 
@@ -186,10 +189,12 @@ void VIEngine::initialiseVulkanLibraries() {
         }
 
         if (vkCreateInstance(&mVulkanLibraries.engineCreationInfo, nullptr, &mVulkanLibraries.mainInstance) != VK_SUCCESS) {
-            throw std::runtime_error("Vulkan instance not created...");
+            throw VIERunException("Vulkan instance not created...", Settings::engineStatus);
         }
 
         Settings::engineStatus = VIEStatus::VULKAN_INSTANCE_CREATED;
+    } else {
+        throw VIERunException("Engine not in GLFW_LOADED status.", Settings::engineStatus);
     }
 }
 
@@ -201,7 +206,7 @@ void VIEngine::prepareMainPhysicalDevices() {
 
         // Gathering devices info
         if (devicesCount == 0) {
-            throw std::runtime_error("No physical devices found for Vulkan rendering...");
+            throw VIERunException("No physical devices found for Vulkan rendering...", Settings::engineStatus);
         }
 
         std::vector<VkPhysicalDevice> availableDevices(devicesCount);
@@ -247,8 +252,10 @@ void VIEngine::prepareMainPhysicalDevices() {
         if (areDevicesSet) {
             Settings::engineStatus = VIEStatus::VULKAN_PHYSICAL_DEVICES_PREPARED;
         } else {
-            throw std::runtime_error("Error looking for physical device...");
+            throw VIERunException("Error looking for physical device...", Settings::engineStatus);
         }
+    } else {
+        throw VIERunException("Engine not in VULKAN_SURFACE_CREATED status.", Settings::engineStatus);
     }
 }
 
@@ -286,7 +293,7 @@ void VIEngine::createLogicDevice() {
 
         if (vkCreateDevice(mPhysicalDevice.mainPhysicalDevice, &mLogicDevice.mainDeviceCreationInfo, nullptr,
                            &mLogicDevice.mainDevice) != VK_SUCCESS) {
-            throw std::runtime_error("Vulkan logic device not created...");
+            throw VIERunException("Vulkan logic device not created...", Settings::engineStatus);
         }
 
         // Obtaining graphics queue family from logic device via stored index
@@ -294,6 +301,8 @@ void VIEngine::createLogicDevice() {
         vkGetDeviceQueue(mLogicDevice.mainDevice, mPhysicalDevice.mainDeviceSelectedPresentFamily.value(), 0, &presentQueue);
 
         Settings::engineStatus = VIEStatus::VULKAN_DEVICE_CREATED;
+    } else {
+        throw VIERunException("Engine not in VULKAN_PHYSICAL_DEVICES_PREPARED status.", Settings::engineStatus);
     }
 }
 
@@ -310,22 +319,24 @@ void VIEngine::prepareWindowSurface() {
 
         if (VkResult result = vkCreateWin32SurfaceKHR(mainInstance, &ntWindowSurfaceCreationInfo, nullptr, &surface);
                 result != VK_SUCCESS) {
-            throw std::runtime_error("Cannot create native NT window surface to bind to Vulkan...");
+            throw VIERunException("Cannot create native NT window surface to bind to Vulkan...", Settings::engineStatus);
         }
 #elif __linux__
         // Creating Vulkan surface based on Wayland native bindings
         // TODO see if in Windows this creation type is compatible
         if (glfwCreateWindowSurface(mVulkanLibraries.mainInstance, mNativeWindow.mainWindow, nullptr, &mSurface.surface)) {
-            throw std::runtime_error("Error creating surface in Wayland environment...");
+            throw VIERunException("Error creating surface in Wayland environment...", Settings::engineStatus);
         }
 #endif
 
         Settings::engineStatus = VIEStatus::VULKAN_SURFACE_CREATED;
+    } else {
+        throw VIERunException("Engine not in VULKAN_INSTANCE_CREATED status.", Settings::engineStatus);
     }
 }
 
 void VIEngine::prepareSwapChain() {
-    if (Settings::engineStatus >= VIEStatus::VULKAN_PHYSICAL_DEVICES_PREPARED) {
+    if (Settings::engineStatus == VIEStatus::VULKAN_DEVICE_CREATED) {
         // Selecting surface format (channels and color space)
         auto foundSurfaceFormat =
                 std::ranges::find_if(mPhysicalDevice.surfaceAvailableFormats,
@@ -398,13 +409,15 @@ void VIEngine::prepareSwapChain() {
 
         if (vkCreateSwapchainKHR(mLogicDevice.mainDevice, &mSwapChain.swapChainCreationInfo, nullptr,
                                  &mSwapChain.mainSwapChain)) {
-            throw std::runtime_error("Cannot create swap chain for main device!");
+            throw VIERunException("Cannot create swap chain for main device!", Settings::engineStatus);
         }
 
         Settings::engineStatus = VIEStatus::VULKAN_SWAP_CHAIN_CREATED;
 
         // TODO https://vulkan-tutorial.com/en/Drawing_a_triangle/Presentation/Swap_chain get swap chain images?
         // TODO https://vulkan-tutorial.com/en/Drawing_a_triangle/Presentation/Image_views get textures for other parts? example shadow mapping?
+    } else {
+        throw VIERunException("Engine not in VULKAN_PHYSICAL_DEVICES_PREPARED status.", Settings::engineStatus);
     }
 }
 
@@ -447,9 +460,8 @@ void VIEngine::prepareEngine() {
         prepareMainPhysicalDevices();
         createLogicDevice();
         prepareSwapChain();
-    } catch (std::runtime_error& e) {
-        // TODO create "why it crashed due to this error", extending std::runtime_error and gathering engine status
-        std::cout << fmt::format("std::runtime_error::what(): {}\nCleaning and closing engine.", e.what());
+    } catch (VIERunException& e) {
+        std::cout << fmt::format("VIERunException::what(): {}\nCleaning and closing engine.", e.what());
     }
 
 
