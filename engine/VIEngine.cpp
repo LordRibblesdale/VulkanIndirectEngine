@@ -8,91 +8,6 @@
 #define FMT_HEADER_ONLY
 #include <fmt/format.h>
 
-void VIEngine::initialiseGLFW() {
-    // Requiring engine to have at least loaded settings
-    if (Settings::engineStatus == VIEStatus::SETTINGS_LOADED) {
-        // GLFW initialisation
-        if (!glfwInit()) {
-            throw std::runtime_error("GLFW not initialised...");
-        }
-
-        // Hinting GLFW to not load APIs (Vulkan APIs not defined in GLFW)
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-        // Initialising window
-        mainWindow = glfwCreateWindow(static_cast<int>(Settings::xRes), static_cast<int>(Settings::yRes),
-                                      Settings::engineProgramName.c_str(), nullptr, nullptr);
-
-        if (!mainWindow) {
-            throw std::runtime_error("GLFW window not initialised...");
-        }
-
-        // Getting extensions from GLFW for Vulkan implementation
-        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-        Settings::engineStatus = VIEStatus::GLFW_LOADED;
-    }
-}
-
-void VIEngine::initialiseVulkanLibraries() {
-    if (Settings::engineStatus == VIEStatus::GLFW_LOADED) {
-        // Creating an instance for GPU drivers and application connection
-        // 1) Application info
-        applicationInfo.pApplicationName = Settings::engineName.c_str();
-        applicationInfo.pEngineName = Settings::engineName.c_str();
-        applicationInfo.applicationVersion = VK_MAKE_VERSION(Settings::engineMajorVersion, Settings::engineMinorVersion,
-                                                             Settings::enginePatchVersion);
-        applicationInfo.engineVersion = VK_MAKE_VERSION(Settings::engineMajorVersion, Settings::engineMinorVersion,
-                                                        Settings::enginePatchVersion);
-        applicationInfo.apiVersion = VK_API_VERSION_1_2;
-
-        // 2) Instance info for extensions to integrate global extensions and validation layers
-        engineCreationInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        // TODO implement additional debug
-        engineCreationInfo.pApplicationInfo = &applicationInfo;
-        engineCreationInfo.enabledExtensionCount = glfwExtensionCount;
-        engineCreationInfo.ppEnabledExtensionNames = glfwExtensions;
-
-        // 2.1) Adding validation layers
-        if (!Settings::validationLayers.empty()) {
-            // Getting number of available layers
-            unsigned int availableInSystemLayersNum = 0;
-            vkEnumerateInstanceLayerProperties(&availableInSystemLayersNum, nullptr);
-
-            // Getting all layers, now known the number of layers
-            std::vector<VkLayerProperties> availableInSystemLayers(availableInSystemLayersNum);
-            vkEnumerateInstanceLayerProperties(&availableInSystemLayersNum, availableInSystemLayers.data());
-
-            std::erase_if(Settings::validationLayers, [&availableInSystemLayers](const char*& requestedLayer){
-                std::string requestedLayerStr(requestedLayer);
-                auto foundLayer = std::ranges::find_if(availableInSystemLayers,
-                                                       [&requestedLayerStr](const VkLayerProperties& properties) {
-                                                           return requestedLayerStr == properties.layerName;
-                                                       });
-
-                return foundLayer == availableInSystemLayers.end();
-            });
-
-            if (Settings::validationLayers.empty()) {
-                engineCreationInfo.enabledLayerCount = 0;
-            } else {
-                engineCreationInfo.enabledLayerCount = static_cast<unsigned int>(Settings::validationLayers.size());
-                engineCreationInfo.ppEnabledLayerNames = Settings::validationLayers.data();
-            }
-        } else {
-            // No validation layers imported
-            engineCreationInfo.enabledLayerCount = 0;
-        }
-
-        if (VkResult creationResult = vkCreateInstance(&engineCreationInfo, nullptr, &mainInstance);
-                creationResult != VK_SUCCESS) {
-            throw std::runtime_error("Vulkan instance not created...");
-        }
-
-        Settings::engineStatus = VIEStatus::VULKAN_INSTANCE_CREATED;
-    }
-}
-
 bool VIEngine::checkDeviceExtensionSupport(const VkPhysicalDevice& device) {
     unsigned int extensionCount;
     // Getting number of supported extensions
@@ -135,11 +50,11 @@ bool VIEngine::checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &d
     auto foundQueueFamily =
             std::ranges::find_if(deviceQueueFamilies,
                                  [&foundQueueFamilyIndex, &presentQueueFamilyIndex, &device, &surface]
-                                 (const VkQueueFamilyProperties& queueFamilyProperties) {
+                                         (const VkQueueFamilyProperties& queueFamilyProperties) {
                                      std::function<bool(const VkQueueFlagBits&)> flagsContainsFunction(
                                              [&queueFamilyProperties](const VkQueueFlagBits& flagBits) {
-                                         return queueFamilyProperties.queueFlags & flagBits;
-                                     });
+                                                 return queueFamilyProperties.queueFlags & flagBits;
+                                             });
                                      // Keeping track of queue family index
                                      ++foundQueueFamilyIndex;
 
@@ -192,12 +107,97 @@ bool VIEngine::checkSurfaceCapabilitiesFromDevice(const VkPhysicalDevice& device
     return formatCount != 0 && presentModeCount != 0;
 }
 
-// TODO set as "prepareMainPhysicalDevice"
-void VIEngine::preparePhysicalDevices() {
+void VIEngine::initialiseGLFW() {
+    // Requiring engine to have at least loaded settings
+    if (Settings::engineStatus == VIEStatus::SETTINGS_LOADED) {
+        // GLFW initialisation
+        if (!glfwInit()) {
+            throw std::runtime_error("GLFW not initialised...");
+        }
+
+        // Hinting GLFW to not load APIs (Vulkan APIs not defined in GLFW)
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+        // Initialising window
+        mNativeWindow.mainWindow = glfwCreateWindow(static_cast<int>(Settings::xRes), static_cast<int>(Settings::yRes),
+                                                    Settings::engineProgramName.c_str(), nullptr, nullptr);
+
+        if (!mNativeWindow.mainWindow) {
+            throw std::runtime_error("GLFW window not initialised...");
+        }
+
+        // Getting extensions from GLFW for Vulkan implementation
+        mNativeWindow.glfwExtensions = glfwGetRequiredInstanceExtensions(&mNativeWindow.glfwExtensionCount);
+
+        Settings::engineStatus = VIEStatus::GLFW_LOADED;
+    }
+}
+
+void VIEngine::initialiseVulkanLibraries() {
+    if (Settings::engineStatus == VIEStatus::GLFW_LOADED) {
+        // Creating an instance for GPU drivers and application connection
+        // 1) Application info
+        mVulkanLibraries.applicationInfo.pApplicationName = Settings::engineName.c_str();
+        mVulkanLibraries.applicationInfo.pEngineName = Settings::engineName.c_str();
+        mVulkanLibraries.applicationInfo.applicationVersion = VK_MAKE_VERSION(Settings::engineMajorVersion,
+                                                                              Settings::engineMinorVersion,
+                                                                              Settings::enginePatchVersion);
+        mVulkanLibraries.applicationInfo.engineVersion = VK_MAKE_VERSION(Settings::engineMajorVersion,
+                                                                         Settings::engineMinorVersion,
+                                                                         Settings::enginePatchVersion);
+        mVulkanLibraries.applicationInfo.apiVersion = VK_API_VERSION_1_2;
+
+        // 2) Instance info for extensions to integrate global extensions and validation layers
+        // TODO implement additional debug
+        mVulkanLibraries.engineCreationInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        mVulkanLibraries.engineCreationInfo.pApplicationInfo = &mVulkanLibraries.applicationInfo;
+        mVulkanLibraries.engineCreationInfo.enabledExtensionCount = mNativeWindow.glfwExtensionCount;
+        mVulkanLibraries.engineCreationInfo.ppEnabledExtensionNames = mNativeWindow.glfwExtensions;
+
+        // 2.1) Adding validation layers
+        if (!Settings::validationLayers.empty()) {
+            // Getting number of available layers
+            unsigned int availableInSystemLayersNum = 0;
+            vkEnumerateInstanceLayerProperties(&availableInSystemLayersNum, nullptr);
+
+            // Getting all layers, now known the number of layers
+            std::vector<VkLayerProperties> availableInSystemLayers(availableInSystemLayersNum);
+            vkEnumerateInstanceLayerProperties(&availableInSystemLayersNum, availableInSystemLayers.data());
+
+            std::erase_if(Settings::validationLayers, [&availableInSystemLayers](const char*& requestedLayer){
+                std::string requestedLayerStr(requestedLayer);
+                auto foundLayer = std::ranges::find_if(availableInSystemLayers,
+                                                       [&requestedLayerStr](const VkLayerProperties& properties) {
+                                                           return requestedLayerStr == properties.layerName;
+                                                       });
+
+                return foundLayer == availableInSystemLayers.end();
+            });
+
+            if (Settings::validationLayers.empty()) {
+                mVulkanLibraries.engineCreationInfo.enabledLayerCount = 0;
+            } else {
+                mVulkanLibraries.engineCreationInfo.enabledLayerCount = static_cast<unsigned int>(Settings::validationLayers.size());
+                mVulkanLibraries.engineCreationInfo.ppEnabledLayerNames = Settings::validationLayers.data();
+            }
+        } else {
+            // No validation layers imported
+            mVulkanLibraries.engineCreationInfo.enabledLayerCount = 0;
+        }
+
+        if (vkCreateInstance(&mVulkanLibraries.engineCreationInfo, nullptr, &mVulkanLibraries.mainInstance) != VK_SUCCESS) {
+            throw std::runtime_error("Vulkan instance not created...");
+        }
+
+        Settings::engineStatus = VIEStatus::VULKAN_INSTANCE_CREATED;
+    }
+}
+
+void VIEngine::prepareMainPhysicalDevices() {
     if (Settings::engineStatus == VIEStatus::VULKAN_SURFACE_CREATED) {
         // Looking for devices
         unsigned int devicesCount = 0;
-        vkEnumeratePhysicalDevices(mainInstance, &devicesCount, nullptr);
+        vkEnumeratePhysicalDevices(mVulkanLibraries.mainInstance, &devicesCount, nullptr);
 
         // Gathering devices info
         if (devicesCount == 0) {
@@ -205,7 +205,7 @@ void VIEngine::preparePhysicalDevices() {
         }
 
         std::vector<VkPhysicalDevice> availableDevices(devicesCount);
-        vkEnumeratePhysicalDevices(mainInstance, &devicesCount, availableDevices.data());
+        vkEnumeratePhysicalDevices(mVulkanLibraries.mainInstance, &devicesCount, availableDevices.data());
 
         // Boolean for checking if a device has been found
         bool areDevicesSet = false;
@@ -218,19 +218,28 @@ void VIEngine::preparePhysicalDevices() {
                 continue;
             }
 
+            std::optional<unsigned int> mainDeviceSelectedQueueFamily;
+            std::optional<unsigned int> mainDeviceSelectedPresentFamily;
+            std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;
+            std::vector<VkPresentModeKHR> surfacePresentationModes;
+
             bool isDeviceCompatibleWithExtensions = checkDeviceExtensionSupport(device);
 
             bool isDeviceCompatibleWithQueueFamily =
-                    checkQueueFamilyCompatibilityWithDevice(device, surface, mainDeviceSelectedQueueFamily,
+                    checkQueueFamilyCompatibilityWithDevice(device, mSurface.surface, mainDeviceSelectedQueueFamily,
                                                             mainDeviceSelectedPresentFamily);
 
             bool isSurfaceSwapChainBasicSupportAvailable =
-                    checkSurfaceCapabilitiesFromDevice(device, surface, surfaceCapabilities,
+                    checkSurfaceCapabilitiesFromDevice(device, mSurface.surface, mSurface.surfaceCapabilities,
                                                        surfaceAvailableFormats, surfacePresentationModes);
 
-            if (isDeviceCompatibleWithExtensions && isDeviceCompatibleWithQueueFamily
-                && isSurfaceSwapChainBasicSupportAvailable) {
-                mainPhysicalDevice = device;
+            if (isDeviceCompatibleWithExtensions && isDeviceCompatibleWithQueueFamily && isSurfaceSwapChainBasicSupportAvailable) {
+                mPhysicalDevice.mainPhysicalDevice = device;
+                mPhysicalDevice.mainDeviceSelectedQueueFamily = mainDeviceSelectedQueueFamily;
+                mPhysicalDevice.mainDeviceSelectedPresentFamily = mainDeviceSelectedPresentFamily;
+                mPhysicalDevice.surfaceAvailableFormats = std::move(surfaceAvailableFormats);
+                mPhysicalDevice.surfacePresentationModes = std::move(surfacePresentationModes);
+
                 areDevicesSet = true;
             }
         }
@@ -249,40 +258,40 @@ void VIEngine::createLogicDevice() {
         // TODO check if the additional "presentQueue" is necessary for later use
         // Preparing command queue family for the main device
         mainDeviceQueueCreationInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        mainDeviceQueueCreationInfo.queueFamilyIndex = mainDeviceSelectedQueueFamily.value();
+        mainDeviceQueueCreationInfo.queueFamilyIndex = mPhysicalDevice.mainDeviceSelectedQueueFamily.value();
         mainDeviceQueueCreationInfo.queueCount = 1;
 
         // Setting queue priority (array)
         mainDeviceQueueCreationInfo.pQueuePriorities = &mainQueueFamilyPriority;
 
         // Preparing logical device creation procedures
-        mainDeviceCreationInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        mainDeviceCreationInfo.pQueueCreateInfos = &mainDeviceQueueCreationInfo;
-        mainDeviceCreationInfo.queueCreateInfoCount = 1;
+        mLogicDevice.mainDeviceCreationInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        mLogicDevice.mainDeviceCreationInfo.pQueueCreateInfos = &mainDeviceQueueCreationInfo;
+        mLogicDevice.mainDeviceCreationInfo.queueCreateInfoCount = 1;
 
         // Setting device features
-        mainDeviceCreationInfo.pEnabledFeatures = &mainPhysicalDeviceFeatures;
+        mLogicDevice.mainDeviceCreationInfo.pEnabledFeatures = &mPhysicalDevice.mainPhysicalDeviceFeatures;
 
         // Setting extensions to logic device
-        mainDeviceCreationInfo.enabledExtensionCount = static_cast<unsigned int>(Settings::deviceExtensions.size());
-        mainDeviceCreationInfo.ppEnabledExtensionNames = Settings::deviceExtensions.data();
+        mLogicDevice.mainDeviceCreationInfo.enabledExtensionCount = static_cast<unsigned int>(Settings::deviceExtensions.size());
+        mLogicDevice.mainDeviceCreationInfo.ppEnabledExtensionNames = Settings::deviceExtensions.data();
 
         // Setting validation layers to logic device
         if (Settings::validationLayers.empty()) {
-            mainDeviceCreationInfo.enabledLayerCount = 0;
+            mLogicDevice.mainDeviceCreationInfo.enabledLayerCount = 0;
         } else {
-            mainDeviceCreationInfo.enabledLayerCount = static_cast<unsigned int>(Settings::validationLayers.size());
-            mainDeviceCreationInfo.ppEnabledLayerNames = Settings::validationLayers.data();
+            mLogicDevice.mainDeviceCreationInfo.enabledLayerCount = static_cast<unsigned int>(Settings::validationLayers.size());
+            mLogicDevice.mainDeviceCreationInfo.ppEnabledLayerNames = Settings::validationLayers.data();
         }
 
-        if (VkResult creationResult = vkCreateDevice(mainPhysicalDevice, &mainDeviceCreationInfo, nullptr, &mainDevice);
-                creationResult != VK_SUCCESS) {
+        if (vkCreateDevice(mPhysicalDevice.mainPhysicalDevice, &mLogicDevice.mainDeviceCreationInfo, nullptr,
+                           &mLogicDevice.mainDevice) != VK_SUCCESS) {
             throw std::runtime_error("Vulkan logic device not created...");
         }
 
         // Obtaining graphics queue family from logic device via stored index
-        vkGetDeviceQueue(mainDevice, mainDeviceSelectedQueueFamily.value(), 0, &graphicsQueue);
-        vkGetDeviceQueue(mainDevice, mainDeviceSelectedPresentFamily.value(), 0, &presentQueue);
+        vkGetDeviceQueue(mLogicDevice.mainDevice, mPhysicalDevice.mainDeviceSelectedQueueFamily.value(), 0, &graphicsQueue);
+        vkGetDeviceQueue(mLogicDevice.mainDevice, mPhysicalDevice.mainDeviceSelectedPresentFamily.value(), 0, &presentQueue);
 
         Settings::engineStatus = VIEStatus::VULKAN_DEVICE_CREATED;
     }
@@ -306,7 +315,7 @@ void VIEngine::prepareWindowSurface() {
 #elif __linux__
         // Creating Vulkan surface based on Wayland native bindings
         // TODO see if in Windows this creation type is compatible
-        if (glfwCreateWindowSurface(mainInstance, mainWindow, nullptr, &surface)) {
+        if (glfwCreateWindowSurface(mVulkanLibraries.mainInstance, mNativeWindow.mainWindow, nullptr, &mSurface.surface)) {
             throw std::runtime_error("Error creating surface in Wayland environment...");
         }
 #endif
@@ -319,75 +328,76 @@ void VIEngine::prepareSwapChain() {
     if (Settings::engineStatus >= VIEStatus::VULKAN_PHYSICAL_DEVICES_PREPARED) {
         // Selecting surface format (channels and color space)
         auto foundSurfaceFormat =
-                std::ranges::find_if(surfaceAvailableFormats,
+                std::ranges::find_if(mPhysicalDevice.surfaceAvailableFormats,
                                      [](const VkSurfaceFormatKHR& surfaceFormat) {
                                          return (std::ranges::find(Settings::defaultFormats, surfaceFormat.format) !=
                                                  Settings::defaultFormats.end()) &&
-                                                 surfaceFormat.colorSpace == Settings::defaultColorSpace;
+                                                surfaceFormat.colorSpace == Settings::defaultColorSpace;
                                      });
 
 
-        chosenSurfaceFormat = (foundSurfaceFormat != surfaceAvailableFormats.end()) ? *foundSurfaceFormat
-                                                                                    : surfaceAvailableFormats.at(0);
+        mSurface.chosenSurfaceFormat = (foundSurfaceFormat != mPhysicalDevice.surfaceAvailableFormats.end()) ?
+                                       *foundSurfaceFormat : mPhysicalDevice.surfaceAvailableFormats.at(0);
 
         // Selecting presentation mode by a swap chain (describing how and when images are represented on screen)
-        auto foundSurfacePresentation = std::ranges::find(surfacePresentationModes, Settings::refreshMode);
-        chosenSurfacePresentationMode = (foundSurfacePresentation != surfacePresentationModes.end()) ?
-                                        *foundSurfacePresentation : VK_PRESENT_MODE_FIFO_KHR;
+        auto foundSurfacePresentation = std::ranges::find(mPhysicalDevice.surfacePresentationModes, Settings::refreshMode);
+        mSurface.chosenSurfacePresentationMode = (foundSurfacePresentation != mPhysicalDevice.surfacePresentationModes.end()) ?
+                                                 *foundSurfacePresentation : VK_PRESENT_MODE_FIFO_KHR;
 
         // Selecting swap extent (resolution of the swap chain images in pixels)
-        if (surfaceCapabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
-            chosenSwapExtent = surfaceCapabilities.currentExtent;
+        if (mSurface.surfaceCapabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+            mSwapChain.chosenSwapExtent = mSurface.surfaceCapabilities.currentExtent;
         } else {
             int width;
             int height;
-            glfwGetFramebufferSize(mainWindow, &width, &height);
+            glfwGetFramebufferSize(mNativeWindow.mainWindow, &width, &height);
 
-            chosenSwapExtent.width = std::clamp(static_cast<uint32_t>(width),
-                                                surfaceCapabilities.minImageExtent.width,
-                                                surfaceCapabilities.maxImageExtent.width);
-            chosenSwapExtent.height = std::clamp(static_cast<uint32_t>(height),
-                                                 surfaceCapabilities.minImageExtent.height,
-                                                 surfaceCapabilities.maxImageExtent.height);
+            mSwapChain.chosenSwapExtent.width = std::clamp(static_cast<uint32_t>(width),
+                                                           mSurface.surfaceCapabilities.minImageExtent.width,
+                                                           mSurface.surfaceCapabilities.maxImageExtent.width);
+            mSwapChain.chosenSwapExtent.height = std::clamp(static_cast<uint32_t>(height),
+                                                            mSurface.surfaceCapabilities.minImageExtent.height,
+                                                            mSurface.surfaceCapabilities.maxImageExtent.height);
         }
 
         // Setting the number of images that the swap chain needs to create, depending on a necessary minimum and maximum
-        unsigned int swapChainImagesCount = std::min(surfaceCapabilities.minImageCount + 1,
-                                                     surfaceCapabilities.maxImageCount);
+        unsigned int swapChainImagesCount = std::min(mSurface.surfaceCapabilities.minImageCount + 1,
+                                                     mSurface.surfaceCapabilities.maxImageCount);
 
         // Settings how swap chain will be created
-        swapChainCreationInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        swapChainCreationInfo.surface = surface;
-        swapChainCreationInfo.minImageCount = swapChainImagesCount;
-        swapChainCreationInfo.imageFormat = chosenSurfaceFormat.format;
-        swapChainCreationInfo.imageColorSpace = chosenSurfaceFormat.colorSpace;
-        swapChainCreationInfo.imageExtent = chosenSwapExtent;
-        swapChainCreationInfo.imageArrayLayers = 1;
-        swapChainCreationInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        // swapChainCreationInfo.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        mSwapChain.swapChainCreationInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+        mSwapChain.swapChainCreationInfo.surface = mSurface.surface;
+        mSwapChain.swapChainCreationInfo.minImageCount = swapChainImagesCount;
+        mSwapChain.swapChainCreationInfo.imageFormat = mSurface.chosenSurfaceFormat.format;
+        mSwapChain.swapChainCreationInfo.imageColorSpace = mSurface.chosenSurfaceFormat.colorSpace;
+        mSwapChain.swapChainCreationInfo.imageExtent = mSwapChain.chosenSwapExtent;
+        mSwapChain.swapChainCreationInfo.imageArrayLayers = 1;
+        mSwapChain.swapChainCreationInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        // mSwapChain.swapChainCreationInfo.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         // Choosing frame handling mode by swap chain
-        std::array<unsigned int, 2> queueIndices({mainDeviceSelectedQueueFamily.value(),
-                                                  mainDeviceSelectedPresentFamily.value()});
+        std::array<unsigned int, 2> queueIndices({mPhysicalDevice.mainDeviceSelectedQueueFamily.value(),
+                                                  mPhysicalDevice.mainDeviceSelectedPresentFamily.value()});
 
-        if (mainDeviceSelectedQueueFamily != mainDeviceSelectedPresentFamily) {
-            swapChainCreationInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-            swapChainCreationInfo.queueFamilyIndexCount = 2;
-            swapChainCreationInfo.pQueueFamilyIndices = queueIndices.data();
+        if (mPhysicalDevice.mainDeviceSelectedQueueFamily != mPhysicalDevice.mainDeviceSelectedPresentFamily) {
+            mSwapChain.swapChainCreationInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+            mSwapChain.swapChainCreationInfo.queueFamilyIndexCount = 2;
+            mSwapChain.swapChainCreationInfo.pQueueFamilyIndices = queueIndices.data();
         } else {
-            swapChainCreationInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            mSwapChain.swapChainCreationInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         }
 
         // Frame transform on surface swap chain
-        swapChainCreationInfo.preTransform = surfaceCapabilities.currentTransform;
-        swapChainCreationInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+        mSwapChain.swapChainCreationInfo.preTransform = mSurface.surfaceCapabilities.currentTransform;
+        mSwapChain.swapChainCreationInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
-        swapChainCreationInfo.presentMode = chosenSurfacePresentationMode;
-        swapChainCreationInfo.clipped = VK_TRUE;
+        mSwapChain.swapChainCreationInfo.presentMode = mSurface.chosenSurfacePresentationMode;
+        mSwapChain.swapChainCreationInfo.clipped = VK_TRUE;
 
-        swapChainCreationInfo.oldSwapchain = VK_NULL_HANDLE;
+        mSwapChain.swapChainCreationInfo.oldSwapchain = VK_NULL_HANDLE;
 
-        if (vkCreateSwapchainKHR(mainDevice, &swapChainCreationInfo, nullptr, &mainSwapChain)) {
+        if (vkCreateSwapchainKHR(mLogicDevice.mainDevice, &mSwapChain.swapChainCreationInfo, nullptr,
+                                 &mSwapChain.mainSwapChain)) {
             throw std::runtime_error("Cannot create swap chain for main device!");
         }
 
@@ -400,17 +410,17 @@ void VIEngine::prepareSwapChain() {
 
 void VIEngine::cleanEngine() {
     if (Settings::engineStatus >= VIEStatus::GLFW_LOADED) {
-        glfwDestroyWindow(mainWindow);
+        glfwDestroyWindow(mNativeWindow.mainWindow);
         glfwTerminate();
 
         if (Settings::engineStatus >= VIEStatus::VULKAN_INSTANCE_CREATED) {
             if (Settings::engineStatus >= VIEStatus::VULKAN_SWAP_CHAIN_CREATED) {
-                vkDestroySwapchainKHR(mainDevice, mainSwapChain, nullptr);
+                vkDestroySwapchainKHR(mLogicDevice.mainDevice, mSwapChain.mainSwapChain, nullptr);
             }
 
-            vkDestroySurfaceKHR(mainInstance, surface, nullptr);
-            vkDestroyDevice(mainDevice, nullptr);
-            vkDestroyInstance(mainInstance, nullptr);
+            vkDestroySurfaceKHR(mVulkanLibraries.mainInstance, mSurface.surface, nullptr);
+            vkDestroyDevice(mLogicDevice.mainDevice, nullptr);
+            vkDestroyInstance(mVulkanLibraries.mainInstance, nullptr);
         }
     }
 }
@@ -434,7 +444,7 @@ void VIEngine::prepareEngine() {
         initialiseGLFW();
         initialiseVulkanLibraries();
         prepareWindowSurface();
-        preparePhysicalDevices();
+        prepareMainPhysicalDevices();
         createLogicDevice();
         prepareSwapChain();
     } catch (std::runtime_error& e) {

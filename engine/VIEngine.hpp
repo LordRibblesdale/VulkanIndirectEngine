@@ -30,34 +30,67 @@
 
 // TODO write functions for creating additional devices or recreate entirely devices
 
+struct VIEModuleNativeWindow {
+    GLFWwindow* mainWindow{};                               ///< GLFW window pointer
+    unsigned int glfwExtensionCount{};                      ///< GLFW extensions count for Vulkan ext. initialisation
+    const char** glfwExtensions{};                          /**< GLFW extensions (GLFW APIs and functions) to be used by
+                                                             *    Vulkan for interacting with window */
+};
+
+struct VIEModuleVulkanLibraries {
+    VkInstance mainInstance{};                              ///< Vulkan runtime instance
+    VkApplicationInfo applicationInfo{};                    ///< Vulkan application data
+    VkInstanceCreateInfo engineCreationInfo{};              ///< Vulkan essential data for creation procedure
+};
+
+struct VIEModuleMainPhysicalDevice {
+    VkPhysicalDevice mainPhysicalDevice{};                          /**< Vulkan physical device object (for used device
+                                                                     *    representation) */
+    VkPhysicalDeviceFeatures mainPhysicalDeviceFeatures{};          ///< Main device features to set for chosen device
+    std::optional<unsigned int> mainDeviceSelectedQueueFamily;      ///< Queue family chosen for the main device
+    std::optional<unsigned int> mainDeviceSelectedPresentFamily;    ///< Present family chosen for the mail device
+    std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;
+    std::vector<VkPresentModeKHR> surfacePresentationModes;         ///< List of available presentation modes for the surface
+};
+
+struct VIEModuleMainLogicalDevice {
+    VkDevice mainDevice{};                                  /**< Vulkan logical device object (for state, resources
+                                                             *    used by instance) */
+    VkDeviceCreateInfo mainDeviceCreationInfo{};            /**< Vulkan main device object (for logical device
+                                                             *    representation) */
+};
+
+struct VIEModuleSurface {
+    VkSurfaceKHR surface{};                                 ///< Window surface for GLFW
+
+    VkSurfaceFormatKHR chosenSurfaceFormat{};               ///< Window surface chosen format and color space
+    VkPresentModeKHR chosenSurfacePresentationMode{};       /**< Window surface images refresh and representation mode
+                                                             *    on surface */
+    VkSurfaceCapabilitiesKHR surfaceCapabilities{};         ///< Window surface capabilities for swap chain implementation
+};
+
+struct VIEModuleSwapChain {
+    VkExtent2D chosenSwapExtent{};                          ///< TODO complete here
+    VkSwapchainCreateInfoKHR swapChainCreationInfo{};       ///< TODO complete here
+    VkSwapchainKHR mainSwapChain{};                         ///< TODO complete here
+};
+
 /**
  * @brief VIEngine class representing Vulkan engine
  */
 class VIEngine {
     // TODO check which of these elements could be freed from memory after prepareEngine
     // GLFW
-    GLFWwindow* mainWindow{};                               ///< GLFW window pointer
-    unsigned int glfwExtensionCount{};                      ///< GLFW extensions count for Vulkan ext. initialisation
-    const char** glfwExtensions{};                          /**< GLFW extensions (GLFW APIs and functions) to be used by
-                                                             *    Vulkan for interacting with window */
+    VIEModuleNativeWindow mNativeWindow;                     ///< Module for native window
 
     // Vulkan instance
-    VkInstance mainInstance{};                              ///< Vulkan runtime instance
-    VkApplicationInfo applicationInfo{};                    ///< Vulkan application data
-    VkInstanceCreateInfo engineCreationInfo{};              ///< Vulkan essential data for creation procedure
+    VIEModuleVulkanLibraries mVulkanLibraries;              ///< Module for Vulkan libraries access
 
     // Vulkan physical device
-    VkPhysicalDevice mainPhysicalDevice{};                  /**< Vulkan physical device object (for actual device
-                                                             *    representation) */
-    std::optional<unsigned int> mainDeviceSelectedQueueFamily;      ///< Queue family chosen for the main device
-    std::optional<unsigned int> mainDeviceSelectedPresentFamily;    ///< Present family chosen for the mail device
-    VkPhysicalDeviceFeatures mainPhysicalDeviceFeatures{};  ///< Main device features to set for chosen device
+    VIEModuleMainPhysicalDevice mPhysicalDevice;            ///< Module for main physical device for rendering
 
     // Vulkan logic device
-    VkDevice mainDevice{};                                  /**< Vulkan logical device object (for state, resources
-                                                             *    used by instance) */
-    VkDeviceCreateInfo mainDeviceCreationInfo{};            /**< Vulkan main device object (for logical device
-                                                             *    representation) */
+    VIEModuleMainLogicalDevice mLogicDevice;                ///< Module for main logic device
 
     // Vulkan queue family
     VkDeviceQueueCreateInfo mainDeviceQueueCreationInfo{};  /**< Vulkan essential data for device queue family creation
@@ -69,20 +102,16 @@ class VIEngine {
     VkQueue presentQueue{};                                 ///< Main frame representation queue
 
     // Vulkan window surface
-    VkSurfaceKHR surface{};                                 ///< Window surface for GLFW
-    VkSurfaceCapabilitiesKHR surfaceCapabilities{};         ///< Window surface capabilities for swap chain implementation
-    VkSurfaceFormatKHR chosenSurfaceFormat{};               ///< Window surface chosen format and color space
-    VkPresentModeKHR chosenSurfacePresentationMode{};       /**< Window surface images refresh and representation mode
-                                                             *    on surface */
-    VkExtent2D chosenSwapExtent{};                          ///< TODO complete here
-    VkSwapchainCreateInfoKHR swapChainCreationInfo{};       ///< TODO complete here
+    VIEModuleSurface mSurface;                              ///< TODO
 
-    VkSwapchainKHR mainSwapChain;                           ///< TODO complete here
+    // Vulkan swap chain
+    VIEModuleSwapChain mSwapChain;                          ///< TODO
 
-    // Device available parameters
-    std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;    ///< List of available color formats for swap chain
-    std::vector<VkPresentModeKHR> surfacePresentationModes;     ///< List of available presentation modes for the surface
-
+    /**
+     * TODO complete documentation
+     * @param device
+     * @return
+     */
     static bool checkDeviceExtensionSupport(const VkPhysicalDevice& device);
 
     /**
@@ -123,11 +152,11 @@ class VIEngine {
     void initialiseVulkanLibraries();
 
     /**
-     * @brief VIEngine::preparePhysicalDevices for Vulkan rendering device assignment
+     * @brief VIEngine::prepareMainPhysicalDevices for Vulkan rendering device assignment
      * The main device for drawing is found and checked if it has all needed requirements for used commands in the
      *  application
      */
-    void preparePhysicalDevices();
+    void prepareMainPhysicalDevices();
 
     /**
      * @brief VIEngine::createLogicDevice create the runtime instance of a physical device, for runtime device own state
