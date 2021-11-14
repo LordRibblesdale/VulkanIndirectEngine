@@ -5,6 +5,9 @@
 #include "VIEngine.hpp"
 #include "../system/Settings.hpp"
 
+#define FMT_HEADER_ONLY
+#include <fmt/format.h>
+
 void VIEngine::initialiseGLFW() {
     // Requiring engine to have at least loaded settings
     if (Settings::engineStatus == VIEStatus::SETTINGS_LOADED) {
@@ -301,7 +304,11 @@ void VIEngine::prepareWindowSurface() {
             throw std::runtime_error("Cannot create native NT window surface to bind to Vulkan...");
         }
 #elif __linux__
-        VkWaylandSurfaceCreateInfoKHR waylandWindowSurfaceCreationInfo{};
+        // Creating Vulkan surface based on Wayland native bindings
+        // TODO see if in Windows this creation type is compatible
+        if (glfwCreateWindowSurface(mainInstance, mainWindow, nullptr, &surface)) {
+            throw std::runtime_error("Error creating surface in Wayland environment...");
+        }
 #endif
 
         Settings::engineStatus = VIEStatus::VULKAN_SURFACE_CREATED;
@@ -423,14 +430,21 @@ void VIEngine::prepareEngine() {
                      " defined! Skipping check...";
     }
 
-    initialiseGLFW();
-    initialiseVulkanLibraries();
-    prepareWindowSurface();
-    preparePhysicalDevices();
-    createLogicDevice();
-    prepareSwapChain();
+    try {
+        initialiseGLFW();
+        initialiseVulkanLibraries();
+        prepareWindowSurface();
+        preparePhysicalDevices();
+        createLogicDevice();
+        prepareSwapChain();
+    } catch (std::runtime_error& e) {
+        // TODO create "why it crashed due to this error", extending std::runtime_error and gathering engine status
+        std::cout << fmt::format("std::runtime_error::what(): {}\nCleaning and closing engine.", e.what());
+    }
+
 
     // TODO import models (using lambdas to describe how to convert personal vector structure to internal drawing struct)
+    //  (VIEModule)
 
     // TODO set a runEngine function (with lambdas for describing some parts (the order of drawing, how to do it, with
     //  a list of functions???)

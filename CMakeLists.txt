@@ -38,8 +38,15 @@ if (WIN32)
 else()
     # TODO check here
     message("- UNIX environment detected...")
+
     message("-> Linking GLFW library...")
-    # target_link_libraries(${PROJECT_NAME} libglfw3.a)
+    target_link_libraries(${PROJECT_NAME} libglfw.so)
+
+    message("-> Linking Vulkan libraries...")
+    target_link_libraries(${PROJECT_NAME} libvulkan.so)
+
+    message("-> Linking PugiXML libraries...")
+    target_link_libraries(${PROJECT_NAME} libpugixml.so)
 endif()
 
 message("")
