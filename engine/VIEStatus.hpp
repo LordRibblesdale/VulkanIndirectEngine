@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <iostream>
+
 /**
  * VIEStatus enumerator for engine status
  */
@@ -17,3 +19,26 @@ enum class VIEStatus : unsigned int {
     VULKAN_DEVICE_CREATED               = 16,   ///< Vulkan logic device created state
     VULKAN_SWAP_CHAIN_CREATED           = 17,   ///< Vulkan device swap chain created state
 };
+
+inline std::string fromVIEStatusToString(VIEStatus status) {
+    switch (status) {
+        case VIEStatus::UNINITIALISED:
+            return "Engine status: UNINITIALISED.";
+        case VIEStatus::SETTINGS_LOADED:
+            return "Engine status: SETTINGS_LOADED.";
+        case VIEStatus::GLFW_LOADED:
+            return "Engine status: GLFW_LOADED.";
+        case VIEStatus::VULKAN_SURFACE_CREATED:
+            return "Engine status: VULKAN_SURFACE_CREATED.";
+        case VIEStatus::VULKAN_INSTANCE_CREATED:
+            return "Engine status: VULKAN_INSTANCE_CREATED.";
+        case VIEStatus::VULKAN_PHYSICAL_DEVICES_PREPARED:
+            return "Engine status: VULKAN_PHYSICAL_DEVICES_PREPARED.";
+        case VIEStatus::VULKAN_DEVICE_CREATED:
+            return "Engine status: VULKAN_DEVICE_CREATED.";
+        case VIEStatus::VULKAN_SWAP_CHAIN_CREATED:
+            return "Engine status: VULKAN_SWAP_CHAIN_CREATED.";
+        default:
+            return "Engine status: [ERROR: VIEStatus not recognised].";
+    }
+}
