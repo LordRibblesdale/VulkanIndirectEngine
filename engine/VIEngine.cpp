@@ -264,16 +264,16 @@ void VIEngine::createLogicDevice() {
     if (Settings::engineStatus == VIEStatus::VULKAN_PHYSICAL_DEVICES_PREPARED) {
         // TODO check if the additional "presentQueue" is necessary for later use
         // Preparing command queue family for the main device
-        mainDeviceQueueCreationInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        mainDeviceQueueCreationInfo.queueFamilyIndex = mPhysicalDevice.mainDeviceSelectedQueueFamily.value();
-        mainDeviceQueueCreationInfo.queueCount = 1;
+        mLogicDevice.mainDeviceQueueCreationInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        mLogicDevice.mainDeviceQueueCreationInfo.queueFamilyIndex = mPhysicalDevice.mainDeviceSelectedQueueFamily.value();
+        mLogicDevice.mainDeviceQueueCreationInfo.queueCount = 1;
 
         // Setting queue priority (array)
-        mainDeviceQueueCreationInfo.pQueuePriorities = &mainQueueFamilyPriority;
+        mLogicDevice.mainDeviceQueueCreationInfo.pQueuePriorities = &mainQueueFamilyPriority;
 
         // Preparing logical device creation procedures
         mLogicDevice.mainDeviceCreationInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        mLogicDevice.mainDeviceCreationInfo.pQueueCreateInfos = &mainDeviceQueueCreationInfo;
+        mLogicDevice.mainDeviceCreationInfo.pQueueCreateInfos = &mLogicDevice.mainDeviceQueueCreationInfo;
         mLogicDevice.mainDeviceCreationInfo.queueCreateInfoCount = 1;
 
         // Setting device features

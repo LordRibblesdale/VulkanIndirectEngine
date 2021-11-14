@@ -58,6 +58,8 @@ struct VIEModuleMainLogicalDevice {
                                                              *    used by instance) */
     VkDeviceCreateInfo mainDeviceCreationInfo{};            /**< Vulkan main device object (for logical device
                                                              *    representation) */
+    VkDeviceQueueCreateInfo mainDeviceQueueCreationInfo{};  /**< Vulkan essential data for device queue family creation
+                                                             *    procedure */
 };
 
 struct VIEModuleSurface {
@@ -93,8 +95,6 @@ class VIEngine {
     VIEModuleMainLogicalDevice mLogicDevice;                ///< Module for main logic device
 
     // Vulkan queue family
-    VkDeviceQueueCreateInfo mainDeviceQueueCreationInfo{};  /**< Vulkan essential data for device queue family creation
-                                                             *    procedure */
     float mainQueueFamilyPriority = 1.0f;                   ///< Main queue family priority
 
     // Vulkan graphics queue
