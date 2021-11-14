@@ -72,9 +72,9 @@ struct VIEModuleSurface {
 };
 
 struct VIEModuleSwapChain {
-    VkExtent2D chosenSwapExtent{};                          ///< TODO complete here
-    VkSwapchainCreateInfoKHR swapChainCreationInfo{};       ///< TODO complete here
-    VkSwapchainKHR mainSwapChain{};                         ///< TODO complete here
+    VkExtent2D chosenSwapExtent{};                          ///< Swap chain images resolution definition
+    VkSwapchainCreateInfoKHR swapChainCreationInfo{};       ///< Swap chain creation data
+    VkSwapchainKHR mainSwapChain{};                         ///< Swap chain system for framebuffers queue management
 };
 
 /**
@@ -174,7 +174,8 @@ class VIEngine {
     void prepareWindowSurface();
 
     /**
-     * TODO
+     * @brief VIEngine::prepareSwapChain prepares the framebuffer queue system, defining the correct and supported color
+     *  space and frame buffering mode
      */
     void prepareSwapChain();
 

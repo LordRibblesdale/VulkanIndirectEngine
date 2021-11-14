@@ -422,19 +422,19 @@ void VIEngine::prepareSwapChain() {
 }
 
 void VIEngine::cleanEngine() {
+    if (Settings::engineStatus >= VIEStatus::VULKAN_SWAP_CHAIN_CREATED) {
+        vkDestroySwapchainKHR(mLogicDevice.mainDevice, mSwapChain.mainSwapChain, nullptr);
+    }
+
+    if (Settings::engineStatus >= VIEStatus::VULKAN_INSTANCE_CREATED) {
+        vkDestroySurfaceKHR(mVulkanLibraries.mainInstance, mSurface.surface, nullptr);
+        vkDestroyDevice(mLogicDevice.mainDevice, nullptr);
+        vkDestroyInstance(mVulkanLibraries.mainInstance, nullptr);
+    }
+
     if (Settings::engineStatus >= VIEStatus::GLFW_LOADED) {
         glfwDestroyWindow(mNativeWindow.mainWindow);
         glfwTerminate();
-
-        if (Settings::engineStatus >= VIEStatus::VULKAN_INSTANCE_CREATED) {
-            if (Settings::engineStatus >= VIEStatus::VULKAN_SWAP_CHAIN_CREATED) {
-                vkDestroySwapchainKHR(mLogicDevice.mainDevice, mSwapChain.mainSwapChain, nullptr);
-            }
-
-            vkDestroySurfaceKHR(mVulkanLibraries.mainInstance, mSurface.surface, nullptr);
-            vkDestroyDevice(mLogicDevice.mainDevice, nullptr);
-            vkDestroyInstance(mVulkanLibraries.mainInstance, nullptr);
-        }
     }
 }
 
