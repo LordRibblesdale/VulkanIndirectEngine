@@ -441,13 +441,9 @@ void VIEngine::prepareEngine() {
         std::cout << e.what() << std::endl;
     }
 
-
     // TODO import models (using lambdas to describe how to convert personal vector structure to internal drawing struct)
     //  (VIEModule)
 
     // TODO set a runEngine function (with lambdas for describing some parts (the order of drawing, how to do it, with
     //  a list of functions???)
-
-    // TODO move cleanEngine to a program closing callback
-    cleanEngine();
 }
