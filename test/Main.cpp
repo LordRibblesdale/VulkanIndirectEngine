@@ -2,11 +2,11 @@
  * MIT License
  */
 
-#include "engine/VIESettings.hpp"
-#include "engine/VIEngine.hpp"
+#include "../engine/VIESettings.hpp"
+#include "../engine/VIEngine.hpp"
 
 /**
- * Main function of IndirectEngine
+ * @brief Main function of IndirectEngine
  * @param argc number of starting arguments
  * @param argv list of arguments given
  * @return execution return code
@@ -25,6 +25,9 @@ int main(int argc, char** argv) {
     settings.addValidationLayer("VK_LAYER_KHRONOS_validation");
 
     // Initialising engine
-    VIEngine engine(settings);
-    engine.prepareEngine();
+    std::cout << "Sizeof VIEngine: " << sizeof(VIEngine) << " bytes" << std::endl;
+    std::cout << "Sizeof VIESettings: " << sizeof(VIESettings) << " bytes" << std::endl;
+    auto engine(std::make_unique<VIEngine>(settings));
+    engine->prepareEngine();
+    engine.reset();
 }
