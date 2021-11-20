@@ -24,24 +24,24 @@ enum class VIEStatus : uint32_t {
 inline std::string fromVIEStatusToString(VIEStatus status) {
     switch (status) {
         case VIEStatus::UNINITIALISED:
-            return "Engine status: UNINITIALISED.";
+            return "UNINITIALISED";
         case VIEStatus::SETTINGS_LOADED:
-            return "Engine status: SETTINGS_LOADED.";
+            return "SETTINGS_LOADED";
         case VIEStatus::GLFW_LOADED:
-            return "Engine status: GLFW_LOADED.";
+            return "GLFW_LOADED";
         case VIEStatus::VULKAN_SURFACE_CREATED:
-            return "Engine status: VULKAN_SURFACE_CREATED.";
+            return "VULKAN_SURFACE_CREATED";
         case VIEStatus::VULKAN_INSTANCE_CREATED:
-            return "Engine status: VULKAN_INSTANCE_CREATED.";
+            return "VULKAN_INSTANCE_CREATED";
         case VIEStatus::VULKAN_PHYSICAL_DEVICES_PREPARED:
-            return "Engine status: VULKAN_PHYSICAL_DEVICES_PREPARED.";
+            return "VULKAN_PHYSICAL_DEVICES_PREPARED";
         case VIEStatus::VULKAN_DEVICE_CREATED:
-            return "Engine status: VULKAN_DEVICE_CREATED.";
+            return "VULKAN_DEVICE_CREATED";
         case VIEStatus::VULKAN_SWAP_CHAIN_CREATED:
-            return "Engine status: VULKAN_SWAP_CHAIN_CREATED.";
+            return "VULKAN_SWAP_CHAIN_CREATED";
         case VIEStatus::VULKAN_IMAGE_VIEWS_CREATED:
-            return "Engine status: VULKAN_IMAGE_VIEWS_CREATED.";
+            return "VULKAN_IMAGE_VIEWS_CREATED";
         default:
-            return "Engine status: [ERROR: VIEStatus not recognised].";
+            return "[ERROR: VIEStatus not recognised]";
     }
 }

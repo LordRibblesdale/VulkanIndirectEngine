@@ -123,7 +123,7 @@ void VIEngine::initialiseGLFW() {
 
         engineStatus = VIEStatus::GLFW_LOADED;
     } else {
-        throw VIERunException("Engine not in SETTINGS_LOADED status.", engineStatus);
+        throw VIERunException(VIEStatus::SETTINGS_LOADED, engineStatus);
     }
 }
 
@@ -186,7 +186,7 @@ void VIEngine::initialiseVulkanLibraries() {
 
         engineStatus = VIEStatus::VULKAN_INSTANCE_CREATED;
     } else {
-        throw VIERunException("Engine not in GLFW_LOADED status.", engineStatus);
+        throw VIERunException(VIEStatus::GLFW_LOADED, engineStatus);
     }
 }
 
@@ -246,7 +246,7 @@ void VIEngine::prepareMainPhysicalDevices() {
             throw VIERunException("Error looking for physical device...", engineStatus);
         }
     } else {
-        throw VIERunException("Engine not in VULKAN_SURFACE_CREATED status.", engineStatus);
+        throw VIERunException(VIEStatus::VULKAN_SURFACE_CREATED, engineStatus);
     }
 }
 
@@ -293,7 +293,7 @@ void VIEngine::createLogicDevice() {
 
         engineStatus = VIEStatus::VULKAN_DEVICE_CREATED;
     } else {
-        throw VIERunException("Engine not in VULKAN_PHYSICAL_DEVICES_PREPARED status.", engineStatus);
+        throw VIERunException(VIEStatus::VULKAN_PHYSICAL_DEVICES_PREPARED, engineStatus);
     }
 }
 
@@ -322,7 +322,7 @@ void VIEngine::prepareWindowSurface() {
 
         engineStatus = VIEStatus::VULKAN_SURFACE_CREATED;
     } else {
-        throw VIERunException("Engine not in VULKAN_INSTANCE_CREATED status.", engineStatus);
+        throw VIERunException(VIEStatus::VULKAN_INSTANCE_CREATED, engineStatus);
     }
 }
 
@@ -406,7 +406,7 @@ void VIEngine::prepareSwapChain() {
         // TODO https://vulkan-tutorial.com/en/Drawing_a_triangle/Presentation/Swap_chain get swap chain images?
         // TODO https://vulkan-tutorial.com/en/Drawing_a_triangle/Presentation/Image_views get textures for other parts? example shadow mapping?
     } else {
-        throw VIERunException("Engine not in VULKAN_PHYSICAL_DEVICES_PREPARED status.", engineStatus);
+        throw VIERunException(VIEStatus::VULKAN_DEVICE_CREATED, engineStatus);
     }
 }
 

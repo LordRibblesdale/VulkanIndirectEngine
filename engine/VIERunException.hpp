@@ -9,12 +9,15 @@
 class VIERunException : public std::exception {
 private:
     std::string message;
-    VIEStatus engineStatus;
 
 public:
-    VIERunException(std::string_view message, VIEStatus status) : message(message), engineStatus(status) {}
+    explicit VIERunException(std::string&& message, VIEStatus currentStatus)
+            : message(fmt::format("{}. Engine status: {}", message, fromVIEStatusToString(currentStatus))) {}
+    VIERunException(VIEStatus expectedStatus, VIEStatus currentStatus)
+            : message(fmt::format("Engine not in {} status. Engine status: {}.", fromVIEStatusToString(expectedStatus),
+                      fromVIEStatusToString(currentStatus))) {}
 
-    std::string errorMessage() const {
-        return message + " " + fromVIEStatusToString(engineStatus);
+    const std::string& errorMessage() const {
+        return message;
     }
 };
