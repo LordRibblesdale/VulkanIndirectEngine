@@ -5,9 +5,9 @@
 #pragma once
 
 #include <string>
-#include "../system/Settings.hpp"
+#include "../engine/VIESettings.hpp"
 
 class XMLHandler {
 public:
-    static void loadXMLSettings(const std::string& path, Settings& settings);
+    static void loadXMLSettings(const std::string& path, VIESettings& settings);
 };

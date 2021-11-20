@@ -9,7 +9,7 @@
 #include <pugixml.hpp>
 
 // https://github.com/zeux/pugixml
-void XMLHandler::loadXMLSettings(const std::string &path, Settings& settings) {
+void XMLHandler::loadXMLSettings(const std::string &path, VIESettings& settings) {
     std::ifstream file(path);
 
     if (file.is_open()) {

@@ -6,7 +6,7 @@
 
 #include "VIEStatus.hpp"
 
-class VIERunException {
+class VIERunException : public std::exception {
 private:
     std::string message;
     VIEStatus engineStatus;
@@ -14,7 +14,7 @@ private:
 public:
     VIERunException(std::string_view message, VIEStatus status) : message(message), engineStatus(status) {}
 
-    std::string what() const {
+    std::string errorMessage() const {
         return message + " " + fromVIEStatusToString(engineStatus);
     }
 };

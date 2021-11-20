@@ -15,7 +15,7 @@ add_executable(${PROJECT_NAME}
         ${engine}
         ${xml}
         ${system}
-        Main.cpp)
+        Main.cpp engine/VIESettings.cpp)
 
 message("")
 

@@ -27,39 +27,41 @@
 #include <optional>
 #include <iostream>
 #include <algorithm>
+#include "VIEStatus.hpp"
+#include "VIESettings.hpp"
 
 // TODO write functions for creating additional devices or recreate entirely devices
 
 struct VIEModuleNativeWindow {
-    GLFWwindow* mainWindow{};                               ///< GLFW window pointer
-    unsigned int glfwExtensionCount{};                      ///< GLFW extensions count for Vulkan ext. initialisation
-    const char** glfwExtensions{};                          /**< GLFW extensions (GLFW APIs and functions) to be used by
-                                                             *    Vulkan for interacting with window */
+    GLFWwindow* glfwWindow{};              ///< GLFW window pointer
+    uint32_t glfwExtensionCount{};         ///< GLFW extensions count for Vulkan ext. initialisation
+    const char** glfwExtensions{};         /**< GLFW extensions (GLFW APIs and functions) to be used by
+                                            *    Vulkan for interacting with window */
 };
 
 struct VIEModuleVulkanLibraries {
-    VkInstance mainInstance{};                              ///< Vulkan runtime instance
-    VkApplicationInfo applicationInfo{};                    ///< Vulkan application data
-    VkInstanceCreateInfo engineCreationInfo{};              ///< Vulkan essential data for creation procedure
+    VkInstance vkInstance{};                       ///< Vulkan runtime instance
+    VkApplicationInfo applicationInfo{};           ///< Vulkan application data
+    VkInstanceCreateInfo engineCreationInfo{};     ///< Vulkan essential data for creation procedure
 };
 
 struct VIEModuleMainPhysicalDevice {
-    VkPhysicalDevice mainPhysicalDevice{};                          /**< Vulkan physical device object (for used device
-                                                                     *    representation) */
-    VkPhysicalDeviceFeatures mainPhysicalDeviceFeatures{};          ///< Main device features to set for chosen device
-    std::optional<unsigned int> mainDeviceSelectedQueueFamily;      ///< Queue family chosen for the main device
-    std::optional<unsigned int> mainDeviceSelectedPresentFamily;    ///< Present family chosen for the mail device
-    std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;        ///< List of available surface color spaces for the surface
-    std::vector<VkPresentModeKHR> surfacePresentationModes;         ///< List of available presentation modes for the surface
+    VkPhysicalDevice vkPhysicalDevice{};                              /**< Vulkan physical device object (for used device
+                                                                       *    representation) */
+    VkPhysicalDeviceFeatures vkPhysicalDeviceFeatures{};              ///< Main device features to set for chosen device
+    std::optional<uint32_t> vkPhysicalDeviceSelectedQueueFamily;      ///< Queue family chosen for the main device
+    std::optional<uint32_t> vkPhysicalDeviceSelectedPresentFamily;    ///< Present family chosen for the mail device
+    std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;          ///< List of available surface color spaces for the surface
+    std::vector<VkPresentModeKHR> surfacePresentationModes;           ///< List of available presentation modes for the surface
 };
 
 struct VIEModuleMainLogicalDevice {
-    VkDevice mainDevice{};                                  /**< Vulkan logical device object (for state, resources
-                                                             *    used by instance) */
-    VkDeviceCreateInfo mainDeviceCreationInfo{};            /**< Vulkan main device object (for logical device
-                                                             *    representation) */
-    VkDeviceQueueCreateInfo mainDeviceQueueCreationInfo{};  /**< Vulkan essential data for device queue family creation
-                                                             *    procedure */
+    VkDevice vkDevice{};                                /**< Vulkan logical device object (for state, resources
+                                                         *    used by instance) */
+    VkDeviceCreateInfo vkDeviceCreateInfo{};            /**< Vulkan main device object (for logical device
+                                                         *    representation) */
+    VkDeviceQueueCreateInfo vkDeviceQueueCreateInfo{};  /**< Vulkan essential data for device queue family creation
+                                                         *    procedure */
 };
 
 struct VIEModuleSurface {
@@ -72,15 +74,19 @@ struct VIEModuleSurface {
 };
 
 struct VIEModuleSwapChain {
+    VkSwapchainKHR swapChain{};                             ///< Swap chain system for framebuffers queue management
+    std::vector<VkImage> swapChainImages{};                 ///< Swap chain extracted images
     VkExtent2D chosenSwapExtent{};                          ///< Swap chain images resolution definition
     VkSwapchainCreateInfoKHR swapChainCreationInfo{};       ///< Swap chain creation data
-    VkSwapchainKHR mainSwapChain{};                         ///< Swap chain system for framebuffers queue management
 };
 
 /**
  * @brief VIEngine class representing Vulkan engine
  */
 class VIEngine {
+    VIESettings settings;
+    VIEStatus engineStatus {VIEStatus::UNINITIALISED};
+
     // TODO check which of these elements could be freed from memory after prepareEngine
     // GLFW
     VIEModuleNativeWindow mNativeWindow;                     ///< Module for native window
@@ -112,7 +118,7 @@ class VIEngine {
      * @param device VkPhysicalDevice to be checked
      * @return true if the device is compatible, false otherwise
      */
-    static bool checkDeviceExtensionSupport(const VkPhysicalDevice& device);
+    bool checkDeviceExtensionSupport(const VkPhysicalDevice& device);
 
     /**
      * @brief VIEngine::checkQueueFamilyCompatibilityWithDevice checks if a device is compatible with specified queue
@@ -122,9 +128,9 @@ class VIEngine {
      * @param flags vector list to be checked if available for the given device
      * @return true if the device is valid, false otherwise
      */
-    static bool checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice& device, VkSurfaceKHR& surface,
-                                                        std::optional<unsigned int>& queueFamilyIndex,
-                                                        std::optional<unsigned int>& presentQueueFamilyIndex);
+    bool checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice& device, VkSurfaceKHR& surface,
+                                                 std::optional<uint32_t>& queueFamilyIndex,
+                                                 std::optional<uint32_t>& presentQueueFamilyIndex);
 
     /**
      * @brief VIEngine::checkSurfaceCapabilitiesFromDevice checks if a surface, related to its device, supports a set of
@@ -188,8 +194,14 @@ class VIEngine {
      * @brief VIEngine::cleanEngine for cleaning all structures and window pointers
      * All structures created during the engine runtime are destroyed at the end.
      */
-    void cleanEngine();
+    void cleanEngine() const;
 public:
+    VIEngine() = delete;
+    explicit VIEngine(const VIESettings& settings);
+    VIEngine(const VIEngine&) = delete;
+    VIEngine(VIEngine&&) = default;
+    ~VIEngine();;
+
     /**
      * @brief VIEngine::prepareEngine for running up all processes (initialisation, preparation, running, cleaning)
      * This function collects all functions needed for running the engine, from initialisation, to drawing, to cleaning

@@ -2,11 +2,8 @@
  * MIT License
  */
 
-#include "system/Settings.hpp"
+#include "engine/VIESettings.hpp"
 #include "engine/VIEngine.hpp"
-
-#define FMT_HEADER_ONLY
-#include <fmt/format.h>
 
 /**
  * Main function of IndirectEngine
@@ -15,41 +12,19 @@
  * @return execution return code
  */
 int main(int argc, char** argv) {
-    // Predeclaring variables
-    VIEngine engine{};
-
     // Reading settings
-    Settings::engineName = "VulkanIndirectEngine";
-    Settings::engineMajorVersion = 1;
-    Settings::engineMinorVersion = 0;
-    Settings::enginePatchVersion = 0;
-    Settings::engineProgramName = fmt::format("{} - {}.{}.{}", Settings::engineName, Settings::engineMajorVersion,
-                                              Settings::engineMinorVersion, Settings::enginePatchVersion);
-    Settings::xRes = 1920;
-    Settings::yRes = 1080;
+    VIESettings settings("VulkanIndirectEngine", 1, 0, 0, 1920, 1080, VK_PRESENT_MODE_IMMEDIATE_KHR);
 
-    Settings::refreshMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+    settings.setPreferredDeviceSelection([](VkPhysicalDevice& device) {
+        VkPhysicalDeviceProperties deviceProperties;
+        vkGetPhysicalDeviceProperties(device, &deviceProperties);
 
-    Settings::checkPreferredGPUProperties = true;
+        return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+    });
 
-    if (Settings::checkPreferredGPUProperties) {
-        Settings::preferredDeviceSelectionFunction = [](VkPhysicalDevice& device) {
-            VkPhysicalDeviceProperties deviceProperties;
-            vkGetPhysicalDeviceProperties(device, &deviceProperties);
-
-            return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
-        };
-    }
-
-    if (true) {
-        // TODO get vector size and reserve before inserting
-        Settings::validationLayers = {
-                "VK_LAYER_KHRONOS_validation"
-        };
-    }
-
-    Settings::engineStatus = VIEStatus::SETTINGS_LOADED;
+    settings.addValidationLayer("VK_LAYER_KHRONOS_validation");
 
     // Initialising engine
+    VIEngine engine(settings);
     engine.prepareEngine();
 }
