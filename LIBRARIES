@@ -1,5 +1,6 @@
-GLFW
-GLM
-FMT
-Vulkan
-https://github.com/Overv/VulkanTutorial
+GLFW (https://www.glfw.org/license)
+GLM (https://glm.g-truc.net/copying.txt)
+FMT (https://github.com/fmtlib/fmt/blob/master/LICENSE.rst)
+Vulkan (https://github.com/KhronosGroup/Vulkan-Headers/blob/master/LICENSE.txt)
+Vulkan Tutorial (https://github.com/Overv/VulkanTutorial)
+shaderc (https://github.com/google/shaderc/blob/main/LICENSE)

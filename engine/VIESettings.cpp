@@ -36,32 +36,12 @@ bool VIESettings::isPreferableDevice(VkPhysicalDevice& device) const {
     return preferredDeviceSelectionFunction && preferredDeviceSelectionFunction(device);
 }
 
-const std::string &VIESettings::getEngineName() const {
-    return engineName;
-}
-
-uint32_t VIESettings::getEngineMajorVersion() const {
-    return engineMajorVersion;
-}
-
-uint32_t VIESettings::getEngineMinorVersion() const {
-    return engineMinorVersion;
-}
-
-uint32_t VIESettings::getEnginePatchVersion() const {
-    return enginePatchVersion;
-}
-
-const std::string &VIESettings::getEngineProgramName() const {
-    return engineProgramName;
-}
-
 uint32_t VIESettings::getDefaultXRes() const {
-    return defaultXRes;
+    return DEFAULT_X_RES;
 }
 
 uint32_t VIESettings::getDefaultYRes() const {
-    return defaultYRes;
+    return DEFAULT_Y_RES;
 }
 
 VkPresentModeKHR VIESettings::getRefreshMode() const {

@@ -29,9 +29,14 @@
 #include <algorithm>
 #include "VIEStatus.hpp"
 #include "VIESettings.hpp"
+#include "VIEUberShader.hpp"
 
 // TODO write functions for creating additional devices or recreate entirely devices
+//  -> Collect all creation functions inside structs, in order to create multiple modules whenever needed by user
+// TODO keep all CreateInfo and Info stored into structs? If not useful for later use, store them locally
+// TODO complete documentation for each structure
 
+// TODO extract modules into specific VIEModule source file?
 struct VIEModuleNativeWindow {
     GLFWwindow* glfwWindow{};              ///< GLFW window pointer
     uint32_t glfwExtensionCount{};         ///< GLFW extensions count for Vulkan ext. initialisation
@@ -75,9 +80,68 @@ struct VIEModuleSurface {
 
 struct VIEModuleSwapChain {
     VkSwapchainKHR swapChain{};                             ///< Swap chain system for framebuffers queue management
-    std::vector<VkImage> swapChainImages{};                 ///< Swap chain extracted images
     VkExtent2D chosenSwapExtent{};                          ///< Swap chain images resolution definition
     VkSwapchainCreateInfoKHR swapChainCreationInfo{};       ///< Swap chain creation data
+
+    std::vector<VkImage> swapChainImages{};                 ///< Swap chain extracted images
+    std::vector<VkImageView> swapChainImageViews{};         ///< Swap chain extracted image viewers
+};
+
+// TODO Add functions for inserting vertex shaders (use std::optional for understanding access)
+// TODO create two of those pipelines for shadow-mapping, offline rendering and viewport visualization
+// TODO create shader pipeline list with drawing functions in order to customise experience (use custom constructors)
+// TODO separate all submodules into structs with their createinfo structs and with their creation functions for multiple calls
+struct VIEModuleShaderPipeline {
+    /* Rendering phases:
+     * - Phase 0: Vertex input      (mandatory step for defining input data structure at the beginning of the shader
+     *                               rendering process)
+     * - Phase 1: Input assembly    (mandatory step for data type given to a shader)
+     * - Phase 2: Vertex shader     (mandatory step for vertex processing (from local space to NDC space, through world
+     *                               space, view space and clip space)
+     * - Phase 3: Tessellation      (optional step for geometry refinement and mesh quality increase)
+     * - Phase 4: Geometry shader   (optional step or geometry handling basing on geometry type)
+     * - Phase 5: Rasterization     (mandatory step for geometry discretization from tridimensional (space) to
+     *                               bidimensional (viewport) space)
+     * - Phase 6: Fragment shader   (mandatory step for pixel processing and information selection (like depth test))
+     * - Phase 7: Color blending    (mandatory step for color combination between previous and current framebuffer data)
+     * - Phase 8: Framebuffer display into viewport
+     */
+
+    std::unique_ptr<VIEUberShader> uberShader;
+
+    // TODO split vertex shader modules and bring vertex creation functions into structs
+    VkShaderModule vertexModule{};                            ///< Vulkan shader module for SPIR-V compiled code (vert)
+    VkShaderModule fragmentModule{};                          ///< Vulkan shader module for SPIR-V compiled code (frag)
+
+    ///< Shader creation info for stage/pipeline definition (vertex) (phase 2)
+    VkPipelineShaderStageCreateInfo vertexShaderStageCreationInfo{};
+    ///< Shader creation info for stage/pipeline definition (fragment) (phase 6)
+    VkPipelineShaderStageCreateInfo fragmentShaderStageCreationInfo{};
+
+    ///< Shader creation info for rendering phase 0: vertex data handling
+    VkPipelineVertexInputStateCreateInfo vertexShaderInputStageCreationInfo{};
+
+    ///< Shader creation info for rendering phase 1: input assembly
+    VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreationInfo{};
+
+    ///< Shader creation info for rendering phase 5: rasterization
+    VkPipelineRasterizationStateCreateInfo rasterizationCreationInfo{};
+
+    ///< Shader creation info for rendering phase 7: color blending
+    VkPipelineColorBlendStateCreateInfo colorBlendingAttachmentCreationInfo{};
+
+    ///< Multisampling
+    VkPipelineMultisampleStateCreateInfo multisamplingCreationInfo{};
+
+    ///< Shader viewport creation info
+    VkPipelineViewportStateCreateInfo viewportStateCreateInfo{};
+
+    // TODO std::optional viewport
+    ///< Viewport definition for rendering output
+    VkViewport viewport{};  // TODO set as an array for
+
+    ///< Viewport scissor for entire or cut viewport display
+    VkRect2D scissorRectangle{};
 };
 
 /**
@@ -104,7 +168,10 @@ class VIEngine {
     VIEModuleSurface mSurface;                              ///< Module for rendering window surface
 
     // Vulkan swap chain
-    VIEModuleSwapChain mSwapChain;                          ///< Module for rendering
+    VIEModuleSwapChain mSwapChain;                          ///< Module for rendering framebuffer behaviour
+
+    // Vulkan rendering pipeline
+    VIEModuleShaderPipeline mShaderPipeline;                ///< Module for rendering pipeline definition
 
     // Vulkan queue family
     float mainQueueFamilyPriority = 1.0f;                   ///< Main queue family priority
@@ -185,26 +252,36 @@ class VIEngine {
      */
     void prepareSwapChain();
 
-    /**
-     * TODO
+    /** TODO complete documentation
+     * @brief
      */
     void prepareImageViews();
+
+    /** TODO complete documentation
+     * @brief
+     */
+    void prepareGraphicsPipeline();
 
     /**
      * @brief VIEngine::cleanEngine for cleaning all structures and window pointers
      * All structures created during the engine runtime are destroyed at the end.
      */
-    void cleanEngine() const;
+    void cleanEngine();
 public:
     VIEngine() = delete;
     explicit VIEngine(const VIESettings& settings);
     VIEngine(const VIEngine&) = delete;
     VIEngine(VIEngine&&) = default;
-    ~VIEngine();;
+    ~VIEngine();
 
     /**
      * @brief VIEngine::prepareEngine for running up all processes (initialisation, preparation, running, cleaning)
      * This function collects all functions needed for running the engine, from initialisation, to drawing, to cleaning
      */
     void prepareEngine();
+
+    /** TODO complete documentation
+     * @brief
+     */
+    void runEngine();
 };

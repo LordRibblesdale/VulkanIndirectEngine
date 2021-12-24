@@ -9,13 +9,16 @@ message("- Locating source files...")
 file(GLOB_RECURSE engine "engine/*.cpp" "engine/*.hpp")
 file(GLOB_RECURSE test "test/*.cpp" "test/*.hpp")
 
+set(STATIC_LIB ${PROJECT_NAME}_static)
+set(SHARED_LIB ${PROJECT_NAME}_shared)
+
 message("- Adding source files into static library")
-add_library(${PROJECT_NAME}_STATIC_LIB STATIC ${engine})
+add_library(${STATIC_LIB} STATIC ${engine})
 
 message("- Adding source files into dynamic library")
-add_library(${PROJECT_NAME}_SHARED_LIB SHARED ${engine})
+add_library(${SHARED_LIB} SHARED ${engine})
 
-message("- Adding source files into project...")
+message("- Adding source files into test project...")
 add_executable(${PROJECT_NAME}
         ${engine}
         ${test})
@@ -24,20 +27,9 @@ message("")
 
 if (WIN32)
     message("- Windows environment detected...")
-    message("-> Linking GLFW libraries...")
-    target_link_libraries(${PROJECT_NAME} libglfw3.dll.a)
-    target_link_libraries(${PROJECT_NAME}_STATIC_LIB libglfw3.dll.a)
-    target_link_libraries(${PROJECT_NAME}_SHARED_LIB libglfw3.dll.a)
+    message("- Setting up libraries...")
 
-    message("-> Linking Vulkan libraries...")
-    target_link_libraries(${PROJECT_NAME} libvulkan.dll.a)
-    target_link_libraries(${PROJECT_NAME}_STATIC_LIB libvulkan.dll.a)
-    target_link_libraries(${PROJECT_NAME}_SHARED_LIB libvulkan.dll.a)
-
-    message("-> Linking PugiXML libraries...")
-    target_link_libraries(${PROJECT_NAME} libpugixml.dll.a)
-    target_link_libraries(${PROJECT_NAME}_STATIC_LIB libpugixml.dll.a)
-    target_link_libraries(${PROJECT_NAME}_SHARED_LIB libpugixml.dll.a)
+    set(LIBRARIES_LIST libglfw3.dll.a libvulkan.dll.a libpugixml.dll.a libshaderc_shared.dll.a)
 
     if (MSVC)
         # TODO to be tested
@@ -48,26 +40,23 @@ else()
     # TODO check here
     message("- UNIX environment detected...")
 
-    message("-> Linking GLFW library...")
-    target_link_libraries(${PROJECT_NAME} libglfw.so)
-    target_link_libraries(${PROJECT_NAME}_STATIC_LIB libglfw.so)
-    target_link_libraries(${PROJECT_NAME}_SHARED_LIB libglfw.so)
-
-    message("-> Linking Vulkan libraries...")
-    target_link_libraries(${PROJECT_NAME} libvulkan.so)
-    target_link_libraries(${PROJECT_NAME}_STATIC_LIB libvulkan.so)
-    target_link_libraries(${PROJECT_NAME}_SHARED_LIB libvulkan.so)
-
-    message("-> Linking PugiXML libraries...")
-    target_link_libraries(${PROJECT_NAME} libpugixml.so)
-    target_link_libraries(${PROJECT_NAME}_STATIC_LIB libpugixml.so)
-    target_link_libraries(${PROJECT_NAME}_SHARED_LIB libpugixml.so)
+    set(LIBRARIES_LIST libglfw.so libvulkan.so libpugixml.so libshaderc_shared.so)
 endif()
+
+message("-> Linking libraries...")
+foreach(LIB IN LISTS LIBRARIES_LIST)
+
+    message("-- Library ${LIB}")
+    target_link_libraries(${PROJECT_NAME} ${LIB})
+    target_link_libraries(${STATIC_LIB} ${LIB})
+    target_link_libraries(${SHARED_LIB} ${LIB})
+endforeach()
 
 message("")
 
-message("- Copying needed data for execution...")
+message("- Copying needed data for execution (ONLY FOR TESTING PURPOSES)...")
 file(COPY "test/Data" DESTINATION "${CMAKE_BINARY_DIR}")
 file(COPY "test/Languages" DESTINATION "${CMAKE_BINARY_DIR}")
+file(COPY "shaders" DESTINATION "${CMAKE_BINARY_DIR}")
 
 message("")

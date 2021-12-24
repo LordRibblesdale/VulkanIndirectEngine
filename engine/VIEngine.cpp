@@ -12,7 +12,9 @@ VIEngine::VIEngine(const VIESettings &settings) : settings(settings), engineStat
 }
 
 VIEngine::~VIEngine() {
-    cleanEngine();
+    if (engineStatus != VIEStatus::UNINITIALISED) {
+        cleanEngine();
+    }
 }
 
 bool VIEngine::checkDeviceExtensionSupport(const VkPhysicalDevice& device) {
@@ -112,7 +114,7 @@ void VIEngine::initialiseGLFW() {
         // Initialising window
         mNativeWindow.glfwWindow = glfwCreateWindow(static_cast<int>(settings.getDefaultXRes()),
                                                     static_cast<int>(settings.getDefaultYRes()),
-                                                    settings.getEngineName().c_str(), nullptr, nullptr);
+                                                    settings.ENGINE_PROGRAM_NAME.c_str(), nullptr, nullptr);
 
         if (!mNativeWindow.glfwWindow) {
             throw VIERunException("GLFW window not initialised...", engineStatus);
@@ -131,15 +133,15 @@ void VIEngine::initialiseVulkanLibraries() {
     if (engineStatus == VIEStatus::GLFW_LOADED) {
         // Creating an instance for GPU drivers and application connection
         // 1) Application info
-        mVulkanLibraries.applicationInfo.pApplicationName = settings.getEngineName().c_str();
-        mVulkanLibraries.applicationInfo.pEngineName = settings.getEngineName().c_str();
+        mVulkanLibraries.applicationInfo.pApplicationName = settings.ENGINE_NAME.c_str();
+        mVulkanLibraries.applicationInfo.pEngineName = settings.ENGINE_NAME.c_str();
         // TODO let user choose which application version is
-        mVulkanLibraries.applicationInfo.applicationVersion = VK_MAKE_VERSION(settings.getEngineMajorVersion(),
-                                                                              settings.getEngineMinorVersion(),
-                                                                              settings.getEnginePatchVersion());
-        mVulkanLibraries.applicationInfo.engineVersion = VK_MAKE_VERSION(settings.getEngineMajorVersion(),
-                                                                         settings.getEngineMinorVersion(),
-                                                                         settings.getEnginePatchVersion());
+        mVulkanLibraries.applicationInfo.applicationVersion = VK_MAKE_VERSION(settings.ENGINE_MAJOR_VERSION,
+                                                                              settings.ENGINE_MINOR_VERSION,
+                                                                              settings.ENGINE_PATCH_VERSION);
+        mVulkanLibraries.applicationInfo.engineVersion = VK_MAKE_VERSION(settings.ENGINE_MAJOR_VERSION,
+                                                                         settings.ENGINE_MINOR_VERSION,
+                                                                         settings.ENGINE_PATCH_VERSION);
         mVulkanLibraries.applicationInfo.apiVersion = VK_API_VERSION_1_2;
 
         // 2) Instance info for extensions to integrate global extensions and validation layers
@@ -410,7 +412,141 @@ void VIEngine::prepareSwapChain() {
     }
 }
 
-void VIEngine::cleanEngine() const {
+void VIEngine::prepareImageViews() {
+    if (engineStatus == VIEStatus::VULKAN_SWAP_CHAIN_CREATED) {
+        mSwapChain.swapChainImageViews.resize(mSwapChain.swapChainImages.size());
+
+        // TODO improve documentation here (https://vulkan-tutorial.com/en/Drawing_a_triangle/Presentation/Image_views)
+        for (size_t i = 0; i < mSwapChain.swapChainImageViews.size(); ++i) {
+            VkImageViewCreateInfo imageViewCreationInfo{};
+            imageViewCreationInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            imageViewCreationInfo.image = mSwapChain.swapChainImages.at(i);
+            imageViewCreationInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            imageViewCreationInfo.format = mSurface.chosenSurfaceFormat.format;
+            imageViewCreationInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+            imageViewCreationInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+            imageViewCreationInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+            imageViewCreationInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+            imageViewCreationInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            imageViewCreationInfo.subresourceRange.baseMipLevel = 0;
+            imageViewCreationInfo.subresourceRange.levelCount = 1;
+            imageViewCreationInfo.subresourceRange.baseArrayLayer = 0;
+            imageViewCreationInfo.subresourceRange.layerCount = 1;
+
+            if (vkCreateImageView(mLogicDevice.vkDevice, &imageViewCreationInfo, nullptr,
+                                  &mSwapChain.swapChainImageViews.at(i)) != VK_SUCCESS) {
+                throw VIERunException(fmt::format("Cannot generate image view {}.", i), engineStatus);
+            }
+
+            engineStatus = VIEStatus::VULKAN_IMAGE_VIEWS_CREATED;
+        }
+    } else {
+        throw VIERunException(VIEStatus::VULKAN_SWAP_CHAIN_CREATED, engineStatus);
+    }
+}
+
+// TODO make generic for every pipeline and every input shader
+void VIEngine::prepareGraphicsPipeline() {
+    if (engineStatus == VIEStatus::VULKAN_IMAGE_VIEWS_CREATED) {
+        if (!mShaderPipeline.uberShader) {
+            // TODO use VIEShaderRequestEntry
+            mShaderPipeline.uberShader = std::make_unique<VIEUberShader>(&engineStatus,
+                                                                         "./shaders/debug/shader.vert",
+                                                                         "./shaders/debug/shader.frag");
+        }
+
+        mShaderPipeline.vertexModule = mShaderPipeline.uberShader->createVertexModuleFromSPIRV(mLogicDevice.vkDevice);
+        mShaderPipeline.fragmentModule = mShaderPipeline.uberShader->createFragmentModuleFromSPIRV(mLogicDevice.vkDevice);
+
+        // Defining vertex shader creation
+        mShaderPipeline.vertexShaderStageCreationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        mShaderPipeline.vertexShaderStageCreationInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        mShaderPipeline.vertexShaderStageCreationInfo.module = mShaderPipeline.vertexModule;
+        mShaderPipeline.vertexShaderStageCreationInfo.pName = "main";   // "main" as first function to invoke
+
+        mShaderPipeline.fragmentShaderStageCreationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        mShaderPipeline.fragmentShaderStageCreationInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        mShaderPipeline.fragmentShaderStageCreationInfo.module = mShaderPipeline.fragmentModule;
+        mShaderPipeline.fragmentShaderStageCreationInfo.pName = "main";
+
+        VkPipelineShaderStageCreateInfo shaderStages[] = {
+                mShaderPipeline.vertexShaderStageCreationInfo,
+                mShaderPipeline.fragmentShaderStageCreationInfo
+        };
+
+        // TODO set with vertex, normal, tangent, bitangent, uv
+        mShaderPipeline.vertexShaderInputStageCreationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        mShaderPipeline.vertexShaderInputStageCreationInfo.vertexBindingDescriptionCount = 0;
+        mShaderPipeline.vertexShaderInputStageCreationInfo.pVertexBindingDescriptions = nullptr;
+        mShaderPipeline.vertexShaderInputStageCreationInfo.vertexAttributeDescriptionCount = 0;
+        mShaderPipeline.vertexShaderInputStageCreationInfo.pVertexAttributeDescriptions = nullptr;
+
+        mShaderPipeline.inputAssemblyCreationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        mShaderPipeline.inputAssemblyCreationInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        mShaderPipeline.inputAssemblyCreationInfo.primitiveRestartEnable = VK_FALSE;
+
+        // Setting viewport size wrt framebuffers/swap chain
+        mShaderPipeline.viewport.x = 0;
+        mShaderPipeline.viewport.y = 0;
+        mShaderPipeline.viewport.width = static_cast<float>(mSwapChain.chosenSwapExtent.width);
+        mShaderPipeline.viewport.height = static_cast<float>(mSwapChain.chosenSwapExtent.height);
+        mShaderPipeline.viewport.minDepth = 0.f;
+        mShaderPipeline.viewport.maxDepth = 1.f;
+
+        mShaderPipeline.scissorRectangle.offset = {0, 0};
+        mShaderPipeline.scissorRectangle.extent = mSwapChain.chosenSwapExtent;
+
+        mShaderPipeline.viewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        mShaderPipeline.viewportStateCreateInfo.viewportCount = 1;  // TODO 2 or 3 for VR?
+        mShaderPipeline.viewportStateCreateInfo.pViewports = &mShaderPipeline.viewport;
+        mShaderPipeline.viewportStateCreateInfo.scissorCount = 1;
+        mShaderPipeline.viewportStateCreateInfo.pScissors = &mShaderPipeline.scissorRectangle;
+
+        mShaderPipeline.rasterizationCreationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        // TODO enable for shadow mapping, requires a GPU feature to check in function-like "enableShadowMapping" (maybe presets for each module and submodule)
+        mShaderPipeline.rasterizationCreationInfo.depthClampEnable = VK_FALSE;
+        mShaderPipeline.rasterizationCreationInfo.rasterizerDiscardEnable = VK_FALSE;
+        mShaderPipeline.rasterizationCreationInfo.polygonMode = VK_POLYGON_MODE_FILL;
+        mShaderPipeline.rasterizationCreationInfo.lineWidth = 1.0f;
+        mShaderPipeline.rasterizationCreationInfo.cullMode = VK_CULL_MODE_BACK_BIT; // FRONT for Shadow Mapping
+        mShaderPipeline.rasterizationCreationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        mShaderPipeline.rasterizationCreationInfo.depthBiasEnable = VK_FALSE;    // SM?
+        mShaderPipeline.rasterizationCreationInfo.depthBiasConstantFactor = 0;
+        mShaderPipeline.rasterizationCreationInfo.depthClampEnable = VK_FALSE;
+        mShaderPipeline.rasterizationCreationInfo.depthBiasSlopeFactor = 0;
+
+        mShaderPipeline.multisamplingCreationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        mShaderPipeline.multisamplingCreationInfo.sampleShadingEnable = VK_FALSE;
+        mShaderPipeline.multisamplingCreationInfo.rasterizationSamples = VK_SAMPLE_COUNT_4_BIT;
+        mShaderPipeline.multisamplingCreationInfo.minSampleShading = 1.0f;
+        mShaderPipeline.multisamplingCreationInfo.pSampleMask = nullptr;
+        mShaderPipeline.multisamplingCreationInfo.alphaToCoverageEnable = VK_FALSE;
+        mShaderPipeline.multisamplingCreationInfo.alphaToOneEnable = VK_FALSE;
+
+        // TODO implement DEPTH STENCIL TEST
+
+        // TODO implement alpha bleeding fix
+
+
+        engineStatus = VIEStatus::VULKAN_GRAPHICS_PIPELINE_GENERATED;
+    } else {
+        throw VIERunException(VIEStatus::VULKAN_IMAGE_VIEWS_CREATED, engineStatus);
+    }
+}
+
+void VIEngine::cleanEngine() {
+    if (engineStatus >= VIEStatus::VULKAN_GRAPHICS_PIPELINE_GENERATED) {
+        // TODO extend when having multiple VIEModules, shader modules
+        vkDestroyShaderModule(mLogicDevice.vkDevice, mShaderPipeline.vertexModule, nullptr);
+        vkDestroyShaderModule(mLogicDevice.vkDevice, mShaderPipeline.fragmentModule, nullptr);
+    }
+
+    if (engineStatus >= VIEStatus::VULKAN_IMAGE_VIEWS_CREATED) {
+        for (auto& imageView : mSwapChain.swapChainImageViews) {
+            vkDestroyImageView(mLogicDevice.vkDevice, imageView, nullptr);
+        }
+    }
+
     if (engineStatus >= VIEStatus::VULKAN_SWAP_CHAIN_CREATED) {
         vkDestroySwapchainKHR(mLogicDevice.vkDevice, mSwapChain.swapChain, nullptr);
     }
@@ -425,6 +561,8 @@ void VIEngine::cleanEngine() const {
         glfwDestroyWindow(mNativeWindow.glfwWindow);
         glfwTerminate();
     }
+
+    engineStatus = VIEStatus::UNINITIALISED;
 }
 
 void VIEngine::prepareEngine() {
@@ -435,6 +573,8 @@ void VIEngine::prepareEngine() {
         prepareMainPhysicalDevices();
         createLogicDevice();
         prepareSwapChain();
+        prepareImageViews();
+        prepareGraphicsPipeline();
     } catch (const VIERunException& e) {
         std::cout << fmt::format("VIERunException::what(): {}\nCleaning and closing engine.\n", e.errorMessage());
     } catch (const std::exception& e) {

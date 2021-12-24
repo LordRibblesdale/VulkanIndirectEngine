@@ -19,23 +19,8 @@
  * @brief VIESettings structure for data access around the engine
  */
 class VIESettings {
-    const std::string engineName;                ///< Engine name
-    const uint32_t engineMajorVersion;           ///< Engine major version
-    const uint32_t engineMinorVersion;           ///< Engine minor version
-    const uint32_t enginePatchVersion;           ///< Engine patch version
-
-    // -------------------------------------------------------------------------
-
-    const std::string engineProgramName;         ///< Combined engine name and version
-
-    // -------------------------------------------------------------------------
-
-    const uint32_t defaultXRes;
-    const uint32_t defaultYRes;
     uint32_t xRes;                        ///< Horizontal window resolution
     uint32_t yRes;                        ///< Vertical window resolution
-
-    // -------------------------------------------------------------------------
 
     ///< Lambda for preferred PhysicalDevice choice
     std::function<bool(VkPhysicalDevice&)> preferredDeviceSelectionFunction;
@@ -44,10 +29,7 @@ class VIESettings {
     ///< Vulkan device extensions for additional API support
     std::vector<const char*> deviceExtensions {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
-    // -------------------------------------------------------------------------
-
     VkPresentModeKHR refreshMode;                ///< Frame limiter handler
-
 
     //TODO complete documentation
     ///< Default and preferred flag bits for queue family research
@@ -58,15 +40,29 @@ class VIESettings {
     VkColorSpaceKHR defaultColorSpace {VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
 
 public:
+    const std::string ENGINE_NAME;               ///< Engine name
+    const uint32_t ENGINE_MAJOR_VERSION;         ///< Engine major version
+    const uint32_t ENGINE_MINOR_VERSION;         ///< Engine minor version
+    const uint32_t ENGINE_PATCH_VERSION;         ///< Engine patch version
+
+    const std::string ENGINE_PROGRAM_NAME;       ///< Combined engine name and version
+
+    const uint32_t DEFAULT_X_RES;
+    const uint32_t DEFAULT_Y_RES;
+
+
     VIESettings() = delete;
     VIESettings(const std::string& engineName, uint32_t engineMajorVersion, uint32_t engineMinorVersion,
-                uint32_t enginePatchVersion, uint32_t xRes, uint32_t yRes, VkPresentModeKHR refreshMode = VK_PRESENT_MODE_IMMEDIATE_KHR)
-            : engineName(engineName), engineMajorVersion(engineMajorVersion), engineMinorVersion(engineMinorVersion),
-              enginePatchVersion(enginePatchVersion), engineProgramName(fmt::format("{} - {}.{}.{}", engineName,
-                                                                                    engineMajorVersion, engineMinorVersion,
-                                                                                    enginePatchVersion)),
-              defaultXRes(xRes), defaultYRes(yRes), xRes(xRes), yRes(yRes), refreshMode(refreshMode) {
-    }
+                uint32_t enginePatchVersion, uint32_t xRes, uint32_t yRes,
+                VkPresentModeKHR refreshMode = VK_PRESENT_MODE_IMMEDIATE_KHR)
+            : xRes(xRes), yRes(yRes), refreshMode(refreshMode), ENGINE_NAME(engineName),
+              ENGINE_MAJOR_VERSION(engineMajorVersion),
+              ENGINE_MINOR_VERSION(engineMinorVersion), ENGINE_PATCH_VERSION(enginePatchVersion),
+              ENGINE_PROGRAM_NAME(fmt::format("{} - {}.{}.{}", engineName,
+                                              engineMajorVersion, engineMinorVersion,
+                                              enginePatchVersion)),
+              DEFAULT_X_RES(xRes), DEFAULT_Y_RES(yRes) {}
+
     VIESettings(const VIESettings&) = default;
     VIESettings(VIESettings&&) = default;
     ~VIESettings() = default;
@@ -101,16 +97,6 @@ public:
     findSurfaceFormat(std::vector<VkSurfaceFormatKHR>& surfaceAvailableFormats) const;
 
     // -------------------------------------------------------------------------
-
-    const std::string &getEngineName() const;
-
-    uint32_t getEngineMajorVersion() const;
-
-    uint32_t getEngineMinorVersion() const;
-
-    uint32_t getEnginePatchVersion() const;
-
-    const std::string &getEngineProgramName() const;
 
     uint32_t getDefaultXRes() const;
 

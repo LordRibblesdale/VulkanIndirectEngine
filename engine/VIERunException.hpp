@@ -18,6 +18,7 @@ public:
                       fromVIEStatusToString(currentStatus))) {}
 
     const std::string& errorMessage() const {
+        // TODO change error color
         return message;
     }
 };

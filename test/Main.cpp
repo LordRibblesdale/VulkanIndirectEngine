@@ -24,6 +24,9 @@ int main(int argc, char** argv) {
 
     settings.addValidationLayer("VK_LAYER_KHRONOS_validation");
 
+    // TODO create an input structure asking engine to create shaders from locations defined by user
+    //  like: struct VIEShaderRequestEntry { str: vert.location, str: frag.location }
+
     // Initialising engine
     std::cout << "Sizeof VIEngine: " << sizeof(VIEngine) << " bytes" << std::endl;
     std::cout << "Sizeof VIESettings: " << sizeof(VIESettings) << " bytes" << std::endl;

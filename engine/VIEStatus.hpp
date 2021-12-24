@@ -8,8 +8,9 @@
 
 /**
  * VIEStatus enumerator for engine status
+ * Up to 256 status
  */
-enum class VIEStatus : uint32_t {
+enum class VIEStatus : uint8_t {
     UNINITIALISED                       = 10,   ///< Uninitialised state
     SETTINGS_LOADED                     = 11,   ///< VIESettings-only initialised state
     GLFW_LOADED                         = 12,   ///< GLFW window (without API) initialised state
@@ -19,6 +20,7 @@ enum class VIEStatus : uint32_t {
     VULKAN_DEVICE_CREATED               = 16,   ///< Vulkan logic device created state
     VULKAN_SWAP_CHAIN_CREATED           = 17,   ///< Vulkan device swap chain created state
     VULKAN_IMAGE_VIEWS_CREATED          = 18,   ///< Vulkan image views created state
+    VULKAN_GRAPHICS_PIPELINE_GENERATED  = 19,   ///< Vulkan graphics pipeline generated state
 };
 
 inline std::string fromVIEStatusToString(VIEStatus status) {
@@ -41,6 +43,8 @@ inline std::string fromVIEStatusToString(VIEStatus status) {
             return "VULKAN_SWAP_CHAIN_CREATED";
         case VIEStatus::VULKAN_IMAGE_VIEWS_CREATED:
             return "VULKAN_IMAGE_VIEWS_CREATED";
+        case VIEStatus::VULKAN_GRAPHICS_PIPELINE_GENERATED:
+            return "VULKAN_GRAPHICS_PIPELINE_GENERATED";
         default:
             return "[ERROR: VIEStatus not recognised]";
     }
