@@ -99,11 +99,11 @@ class VIEngine {
      * @brief VIEngine::checkQueueFamilyCompatibilityWithDevice checks if a device is compatible with specified queue
      *          families
      * @param device VkPhysicalDevice to be checked
-     * @param surface Engine surface for checking device compatibility
+     * @param selectedSurface Engine selectedSurface for checking device compatibility
      * @param flags vector list to be checked if available for the given device
      * @return true if the device is valid, false otherwise
      */
-    bool checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &device, VkSurfaceKHR &surface,
+    bool checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &device, VkSurfaceKHR &selectedSurface,
                                                  std::optional<uint32_t> &queueFamilyIndex,
                                                  std::optional<uint32_t> &presentQueueFamilyIndex);
 

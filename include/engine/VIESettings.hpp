@@ -45,33 +45,29 @@ struct VIESettings {
 
 
     const std::string kEngineName{"VulkanIndirectEngine"};
-    const uint32_t kEngineMajorVersion{1};       ///< Engine major version
-    const uint32_t kEngineMinorVersion{0};       ///< Engine minor version
-    const uint32_t kEnginePatchVersion{0};       ///< Engine patch version
+    const uint32_t kEngineVersion{VK_MAKE_API_VERSION(0, 1, 0, 0)};    ///< Engine version
 
     const std::string kApplicationName;          ///< Application name
-    const uint32_t kApplicationMajorVersion;     ///< Application major version
-    const uint32_t kApplicationMinorVersion;     ///< Application minor version
-    const uint32_t kApplicationPatchVersion;     ///< Application patch version
+    const uint32_t kAppMajorVersion;             ///< Application major version
+    const uint32_t kAppMinorVersion;             ///< Application minor version
+    const uint32_t kAppPatchVersion;             ///< Application patch version
+    const uint32_t kApplicationVersion;
 
     const std::string kApplicationProgramName;   ///< Combined application name and version
 
     const uint32_t kDefaultXRes;
     const uint32_t kDefaultYRes;
 
-
     VIESettings() = delete;
 
-    VIESettings(const std::string &applicationName, uint32_t applicationMajorVersion, uint32_t applicationMinorVersion,
-                uint32_t applicationPatchVersion, uint32_t xRes, uint32_t yRes,
+    VIESettings(const std::string &applicationName, uint32_t appMajorVersion, uint32_t appMinorVersion,
+                uint32_t appPatchVersion, uint32_t xRes, uint32_t yRes,
                 VkPresentModeKHR refreshMode = VK_PRESENT_MODE_IMMEDIATE_KHR)
             : xRes(xRes), yRes(yRes), preferredPresentMode(refreshMode), kApplicationName(applicationName),
-              kApplicationMajorVersion(applicationMajorVersion),
-              kApplicationMinorVersion(applicationMinorVersion), kApplicationPatchVersion(applicationPatchVersion),
-              kApplicationProgramName(fmt::format("{} - {}.{}.{}", applicationName,
-                                                  applicationMajorVersion, applicationMinorVersion,
-                                                  applicationPatchVersion)),
-              kDefaultXRes(xRes), kDefaultYRes(yRes) {}
+              kAppMajorVersion(appMajorVersion), kAppMinorVersion(appMinorVersion), kAppPatchVersion(appPatchVersion),
+              kApplicationVersion(VK_MAKE_API_VERSION(0, appMajorVersion, appMinorVersion, appPatchVersion)),
+              kApplicationProgramName(fmt::format("{} - {}.{}.{}", applicationName, appMajorVersion, appMinorVersion,
+                                                  appPatchVersion)), kDefaultXRes(xRes), kDefaultYRes(yRes) {}
 
     VIESettings(const VIESettings &) = default;
     VIESettings(VIESettings &&) = default;
@@ -81,15 +77,4 @@ struct VIESettings {
     inline void setPreferredDeviceSelection(Predicate &&predicate) {
         preferredDeviceSelectionFunction = std::forward<Predicate>(predicate);
     }
-
-    void addDeviceExtension(const char *extension);
-
-    std::vector<VkSurfaceFormatKHR>::iterator
-    findSurfaceFormat(std::vector<VkSurfaceFormatKHR> &surfaceAvailableFormats) const;
-
-    // -------------------------------------------------------------------------
-
-    uint32_t getDefaultXRes() const;
-
-    uint32_t getDefaultYRes() const;
 };

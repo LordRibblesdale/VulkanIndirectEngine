@@ -21,7 +21,7 @@ VIEngine::~VIEngine() {
     }
 }
 
-bool VIEngine::checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &device, VkSurfaceKHR &surface,
+bool VIEngine::checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &device, VkSurfaceKHR &selectedSurface,
                                                        std::optional<uint32_t> &queueFamilyIndex,
                                                        std::optional<uint32_t> &presentQueueFamilyIndex) {
 
@@ -34,11 +34,11 @@ bool VIEngine::checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &d
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, deviceQueueFamilies.data());
 
     queueFamilyCount = std::numeric_limits<uint32_t>::max();
-    // Checking if there is the interested queue family with requested flags and with surface support
+    // Checking if there is the interested queue family with requested flags and with selectedSurface support
     bool foundQueueFamily =
             std::ranges::any_of(
                     deviceQueueFamilies,
-                    [&queueFamilyCount, &presentQueueFamilyIndex, &device, &surface, this]
+                    [&queueFamilyCount, &presentQueueFamilyIndex, &device, &selectedSurface, this]
                             (const VkQueueFamilyProperties &queueFamilyProperties) {
                         auto flagsContainsFunction([&queueFamilyProperties](const VkQueueFlagBits &flagBits) {
                             return queueFamilyProperties.queueFlags & flagBits;
@@ -47,7 +47,7 @@ bool VIEngine::checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &d
                         ++queueFamilyCount;
 
                         VkBool32 isSurfaceSupported = false;
-                        vkGetPhysicalDeviceSurfaceSupportKHR(device, queueFamilyCount, surface,
+                        vkGetPhysicalDeviceSurfaceSupportKHR(device, queueFamilyCount, selectedSurface,
                                                              &isSurfaceSupported);
 
                         if (isSurfaceSupported) {
@@ -132,8 +132,8 @@ bool VIEngine::prepareEngine() {
         // Hinting GLFW to not load APIs (Vulkan APIs not defined in GLFW)
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-        glfwWindow = glfwCreateWindow(static_cast<int>(settings.getDefaultXRes()),
-                                      static_cast<int>(settings.getDefaultYRes()),
+        glfwWindow = glfwCreateWindow(static_cast<int>(settings.kDefaultXRes),
+                                      static_cast<int>(settings.kDefaultYRes),
                                       settings.kApplicationProgramName.c_str(), nullptr, nullptr);
 
         return_log_if(!glfwWindow, "GLFW window not initialised...", false)
@@ -152,13 +152,9 @@ bool VIEngine::prepareEngine() {
                 VK_STRUCTURE_TYPE_APPLICATION_INFO,                     // sType
                 nullptr,                                                // pNext
                 settings.kApplicationName.c_str(),                      // pApplicationName
-                VK_MAKE_VERSION(settings.kApplicationMajorVersion,      // applicationVersion
-                                settings.kApplicationMinorVersion,
-                                settings.kApplicationPatchVersion),
+                settings.kApplicationVersion,                           // applicationVersion
                 "VulkanIndirectEngine",                                 // pEngineName
-                VK_MAKE_VERSION(settings.kEngineMajorVersion,           // engineVersion
-                                settings.kEngineMinorVersion,
-                                settings.kEnginePatchVersion),
+                settings.kEngineVersion,                                // engineVersion
                 VK_API_VERSION_1_2                                      // apiVersion
         };
 
@@ -211,7 +207,7 @@ bool VIEngine::prepareEngine() {
     });
 
     auto preparePhysicalDevice([this, &vkPhysicalDevice,  &selectedPresentFamily, &selectedQueueFamily,
-                                       &surfaceCapabilities]() {
+                                       &surfaceCapabilities, &surfaceAvailableFormats]() {
         // Looking for devices
         uint32_t devicesCount = 0;
         vkEnumeratePhysicalDevices(vkInstance, &devicesCount, nullptr);
@@ -222,8 +218,8 @@ bool VIEngine::prepareEngine() {
         std::vector<VkPhysicalDevice> availableDevices(devicesCount);
         vkEnumeratePhysicalDevices(vkInstance, &devicesCount, availableDevices.data());
 
-        erase_if(availableDevices, [this](const VkPhysicalDevice &vkPhysicalDevice) {
-            return settings.preferredDeviceSelectionFunction ? !settings.preferredDeviceSelectionFunction(vkPhysicalDevice)
+        erase_if(availableDevices, [this](const VkPhysicalDevice &physicalDevice) {
+            return settings.preferredDeviceSelectionFunction ? !settings.preferredDeviceSelectionFunction(physicalDevice)
                                                              : true;
         });
 
@@ -235,8 +231,8 @@ bool VIEngine::prepareEngine() {
         for (VkPhysicalDevice &device : availableDevices) {
             std::optional<uint32_t> mainDeviceSelectedQueueFamily;
             std::optional<uint32_t> mainDeviceSelectedPresentFamily;
-            std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;
-            std::vector<VkPresentModeKHR> surfacePresentationModes;
+            std::vector<VkSurfaceFormatKHR> surfaceFormats;
+            std::vector<VkPresentModeKHR> surfacePresentModes;
 
             bool isDeviceCompatibleWithExtensions = tools::checkDeviceExtensionSupport(device, settings.deviceExtensions);
 
@@ -247,21 +243,29 @@ bool VIEngine::prepareEngine() {
 
             bool isSurfaceSwapChainBasicSupportAvailable =
                     checkSurfaceCapabilitiesFromDevice(device, surface, surfaceCapabilities,
-                                                       surfaceAvailableFormats, surfacePresentationModes);
+                                                       surfaceFormats, surfacePresentModes);
 
             if (isDeviceCompatibleWithExtensions && isDeviceCompatibleWithQueueFamily &&
                 isSurfaceSwapChainBasicSupportAvailable) {
                 vkPhysicalDevice = device;
                 selectedQueueFamily = mainDeviceSelectedQueueFamily;
                 selectedPresentFamily = mainDeviceSelectedPresentFamily;
-                surfaceAvailableFormats = std::move(surfaceAvailableFormats);
-                surfacePresentationModes = std::move(surfacePresentationModes);
+                surfaceFormats = std::move(surfaceFormats);
+                surfacePresentModes = std::move(surfacePresentModes);
 
                 areDevicesSet = true;
             }
         }
 
         return_log_if(!areDevicesSet, "Error looking for physical device...", false)
+
+        uint32_t formatCount = 0;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice, surface, &formatCount, nullptr);
+
+        if (formatCount != 0) {
+            surfaceAvailableFormats.resize(formatCount);
+            vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice, surface, &formatCount, surfaceAvailableFormats.data());
+        }
 
         return true;
     });
@@ -271,12 +275,12 @@ bool VIEngine::prepareEngine() {
         // TODO check if the additional "presentQueue" is necessary for later use
         // Preparing command queue family for the main device
         VkDeviceQueueCreateInfo vkDeviceQueueCreateInfo{
-                VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,                         // sType
-                nullptr,                                                        // pNext
-                0,                                                              // flags
-                selectedQueueFamily.value(),    // queueFamilyIndex
-                1,                                                              // queueCount
-                &mainQueueFamilyPriority                                        // pQueuePriorities
+                VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,     // sType
+                nullptr,                                    // pNext
+                0,                                          // flags
+                selectedQueueFamily.value(),                // queueFamilyIndex
+                1,                                          // queueCount
+                &mainQueueFamilyPriority                    // pQueuePriorities
         };
 
         // TODO edit so that where vkPhysicalDeviceFeatures is more understandable
@@ -624,8 +628,6 @@ bool VIEngine::prepareEngine() {
                 {0.0f, 0.0f, 0.0f, 0.0f}                                    // blendConstants[4]
         };
 
-
-
         VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo{
                 VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,   // sType
                 nullptr,                                                // pNext
@@ -664,6 +666,113 @@ bool VIEngine::prepareEngine() {
         return true;
     });
 
+    auto initializeFramebuffers([this, &chosenSwapExtent]() {
+        // Framebuffers linked to swap chains and image views
+        swapChainFramebuffers.resize(swapChainImageViews.size());
+
+        for (size_t i = 0; const VkImageView &attachment: swapChainImageViews) {
+            VkFramebufferCreateInfo framebufferCreateInfo{
+                    VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,  // sType
+                    nullptr,                                    // pNext
+                    0,                                          // flags
+                    renderPass,                                 // renderPass
+                    1,                                          // attachmentCount
+                    &attachment,                                // pAttachments
+                    chosenSwapExtent.width,                     // width
+                    chosenSwapExtent.height,                    // height
+                    1                                           // layers
+            };
+
+            return_log_if(vkCreateFramebuffer(vkDevice, &framebufferCreateInfo, nullptr, &swapChainFramebuffers.at(i)) != VK_SUCCESS,
+                          fmt::format("Cannot create framebuffer {}", i), false)
+
+            ++i;
+        }
+
+        return true;
+    });
+
+    auto createCommandPool([this, &selectedQueueFamily]() {
+        VkCommandPoolCreateInfo commandPoolCreateInfo{
+                VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,                     // sType
+                nullptr,                                                        // pNext
+                0,                                                              // flags
+                selectedQueueFamily.value()     // queueFamilyIndex
+        };
+
+        return_log_if(vkCreateCommandPool(vkDevice, &commandPoolCreateInfo, nullptr, &commandPool) != VK_SUCCESS,
+                      "Cannot create command pool...", false)
+
+        return true;
+    });
+
+    auto prepareCommandBuffers([this, &chosenSwapExtent]() {
+        commandBuffers.resize(swapChainFramebuffers.size());
+
+        VkCommandBufferAllocateInfo commandBufferAllocateInfo{
+                VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,     // sType
+                nullptr,                                            // pNext
+                commandPool,                                        // commandPool
+                VK_COMMAND_BUFFER_LEVEL_PRIMARY,                    // level
+                static_cast<uint32_t>(commandBuffers.size())        // commandBufferCount
+        };
+
+        return_log_if(vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, commandBuffers.data()) != VK_SUCCESS,
+                      "Cannot create command buffers...", false)
+
+        // TODO integrate custom render pass and draw commands so that others could implement their shaders and related commands
+        //  maybe to split in separate function in order to implement one or more lambdas
+        for (size_t i = 0; const VkCommandBuffer &buffer: commandBuffers) {
+            VkCommandBufferBeginInfo commandBufferBeginInfo{
+                    VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,    // sType
+                    nullptr,                                        // pNext
+                    0,                                              // flags
+                    nullptr                                         // pInheritanceInfo
+            };
+
+            return_log_if(vkBeginCommandBuffer(buffer, &commandBufferBeginInfo) != VK_SUCCESS,
+                          fmt::format("Cannot begin recording command buffer {}", i), false)
+
+            VkClearValue clearColor{{{0.0f, 0.0f, 0.0f, 1.0f}}};
+            VkRenderPassBeginInfo renderPassBeginInfo{
+                    VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,   // sType
+                    nullptr,                                    // pNext
+                    renderPass,                                 // renderPass
+                    swapChainFramebuffers.at(i),                // framebuffer
+                    VkRect2D{{0, 0}, chosenSwapExtent},         // renderArea
+                    1,                                          // clearValueCount
+                    &clearColor                                 // pClearValues
+            };
+
+            vkCmdBeginRenderPass(buffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+            vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+            vkCmdDraw(buffer, 3, 1, 0, 0);
+
+            vkCmdEndRenderPass(buffer);
+
+            return_log_if(vkEndCommandBuffer(buffer) != VK_SUCCESS, "Failed to record command buffer...", false)
+
+            ++i;
+        }
+
+        return true;
+    });
+
+    auto createSemaphores([this]() {
+        VkSemaphoreCreateInfo semaphoreCreateInfo{
+                VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,    // sType
+                nullptr,                                    // pNext
+                0                                           // flags
+        };
+
+        return_log_if((vkCreateSemaphore(vkDevice, &semaphoreCreateInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
+                       vkCreateSemaphore(vkDevice, &semaphoreCreateInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS),
+                      "Cannot create semaphores...", false)
+
+        return true;
+    });
+
     return_log_if(!initializeGlfw(), "Error 1", false)
     engineStatus = VIEStatus::GLFW_LOADED;
 
@@ -697,113 +806,26 @@ bool VIEngine::prepareEngine() {
     return_log_if(!generateGraphicsPipeline(), "Error 11", false)
     engineStatus = VIEStatus::VULKAN_GRAPHICS_PIPELINE_GENERATED;
 
-    // Framebuffers linked to swap chains and image views
-    swapChainFramebuffers.resize(swapChainImageViews.size());
-
-    for (size_t i = 0; const VkImageView &attachment: swapChainImageViews) {
-        VkFramebufferCreateInfo framebufferCreateInfo{
-                VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,  // sType
-                nullptr,                                    // pNext
-                0,                                          // flags
-                renderPass,                                 // renderPass
-                1,                                          // attachmentCount
-                &attachment,                                // pAttachments
-                chosenSwapExtent.width,                     // width
-                chosenSwapExtent.height,                    // height
-                1                                           // layers
-        };
-
-        return_log_if(vkCreateFramebuffer(vkDevice, &framebufferCreateInfo, nullptr, &swapChainFramebuffers.at(i)) != VK_SUCCESS,
-                      fmt::format("Cannot create framebuffer {}", i), false)
-
-        ++i;
-    }
-
+    return_log_if(!initializeFramebuffers(), "Error 12", false)
     engineStatus = VIEStatus::VULKAN_FRAMEBUFFERS_CREATED;
 
-    VkCommandPoolCreateInfo commandPoolCreateInfo{
-            VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,                     // sType
-            nullptr,                                                        // pNext
-            0,                                                              // flags
-            selectedQueueFamily.value()     // queueFamilyIndex
-    };
-
-    return_log_if(vkCreateCommandPool(vkDevice, &commandPoolCreateInfo, nullptr, &commandPool) != VK_SUCCESS,
-                  "Cannot create command pool...", false)
-
+    return_log_if(!createCommandPool(), "Error 13", false)
     engineStatus = VIEStatus::VULKAN_COMMAND_POOL_CREATED;
 
-    commandBuffers.resize(swapChainFramebuffers.size());
-
-    VkCommandBufferAllocateInfo commandBufferAllocateInfo{
-            VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,     // sType
-            nullptr,                                            // pNext
-            commandPool,                                        // commandPool
-            VK_COMMAND_BUFFER_LEVEL_PRIMARY,                    // level
-            static_cast<uint32_t>(commandBuffers.size())        // commandBufferCount
-    };
-
-    return_log_if(vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, commandBuffers.data()) != VK_SUCCESS,
-                  "Cannot create command buffers...", false)
-
-    // TODO integrate custom render pass and draw commands so that others could implement their shaders and related commands
-    //  maybe to split in separate function in order to implement one or more lambdas
-    for (size_t i = 0; const VkCommandBuffer &buffer: commandBuffers) {
-        VkCommandBufferBeginInfo commandBufferBeginInfo{
-                VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,    // sType
-                nullptr,                                        // pNext
-                0,                                              // flags
-                nullptr                                         // pInheritanceInfo
-        };
-
-        return_log_if(vkBeginCommandBuffer(buffer, &commandBufferBeginInfo) != VK_SUCCESS,
-                      fmt::format("Cannot begin recording command buffer {}", i), false)
-
-        VkClearValue clearColor{{{0.0f, 0.0f, 0.0f, 1.0f}}};
-        VkRenderPassBeginInfo renderPassBeginInfo{
-                VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,   // sType
-                nullptr,                                    // pNext
-                renderPass,                                 // renderPass
-                swapChainFramebuffers.at(i),                // framebuffer
-                VkRect2D{{0, 0}, chosenSwapExtent},         // renderArea
-                1,                                          // clearValueCount
-                &clearColor                                 // pClearValues
-        };
-
-        vkCmdBeginRenderPass(buffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
-        vkCmdDraw(buffer,   // commandBuffer
-                  3,        // vertexCount
-                  1,        // instanceCount
-                  0,        // firstVertex
-                  0);       // firstInstance
-
-        vkCmdEndRenderPass(buffer);
-
-        return_log_if(vkEndCommandBuffer(buffer) != VK_SUCCESS, "Failed to record command buffer...", false)
-
-        ++i;
-    }
-
+    return_log_if(!prepareCommandBuffers(), "Error 14", false)
     engineStatus = VIEStatus::VULKAN_COMMAND_BUFFERS_PREPARED;
 
-    VkSemaphoreCreateInfo semaphoreCreateInfo{
-            VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,    // sType
-            nullptr,                                    // pNext
-            0                                           // flags
-    };
-
-    return_log_if((vkCreateSemaphore(vkDevice, &semaphoreCreateInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
-                   vkCreateSemaphore(vkDevice, &semaphoreCreateInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS),
-                  "Cannot create semaphores...", false)
-
+    return_log_if(!createSemaphores(), "Error 15", false)
     engineStatus = VIEStatus::VULKAN_SEMAPHORES_CREATED;
 
     return true;
 }
 
 void VIEngine::runEngine() {
+    if (engineStatus < VIEStatus::VULKAN_SEMAPHORES_CREATED) {
+        return;
+    }
+
     // TODO create function for defining key and mouse inputs
     while(!glfwWindowShouldClose(glfwWindow)) {
         glfwPollEvents();
