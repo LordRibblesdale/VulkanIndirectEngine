@@ -15,9 +15,10 @@ int main(int argc, char** argv) {
     // Reading settings
     VIESettings settings("VulkanIndirectEngine", 1, 0, 0, 1920, 1080, VK_PRESENT_MODE_IMMEDIATE_KHR);
 
-    settings.setPreferredDeviceSelection([](VkPhysicalDevice& device) {
+    settings.setPreferredDeviceSelection([](const VkPhysicalDevice& device) {
         VkPhysicalDeviceProperties deviceProperties;
         VkPhysicalDeviceFeatures deviceFeatures;
+
         vkGetPhysicalDeviceProperties(device, &deviceProperties);
         vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
@@ -26,7 +27,7 @@ int main(int argc, char** argv) {
                deviceFeatures.multiDrawIndirect && deviceFeatures.multiViewport;
     });
 
-    settings.addValidationLayer("VK_LAYER_KHRONOS_validation");
+    settings.validationLayers.push_back("VK_LAYER_KHRONOS_validation");
 
     // TODO create an input structure asking engine to create shaders from locations defined by user
     //  like: struct VIEShaderRequestEntry { str: vert.location, str: frag.location }

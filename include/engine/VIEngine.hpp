@@ -32,75 +32,20 @@
 #include "VIESettings.hpp"
 #include "VIEUberShader.hpp"
 
-// TODO write functions for creating additional devices or recreate entirely devices
-//  -> Collect all creation functions inside structs, in order to create multiple modules whenever needed by user
-// TODO keep all CreateInfo and Info stored into structs? If not useful for later use, store them locally
-// TODO complete documentation for each structure
-
-// TODO extract modules into specific VIEModule source file?
-struct VIEModuleNativeWindow {
-    GLFWwindow *glfwWindow{};              ///< GLFW window pointer
-    uint32_t glfwExtensionCount{};         ///< GLFW extensions count for Vulkan ext. initialisation
-    const char **glfwExtensions{};         /**< GLFW extensions (GLFW APIs and functions) to be used by
-                                            *    Vulkan for interacting with window */
-};
-
-struct VIEModuleMainPhysicalDevice {
-    VkPhysicalDevice vkPhysicalDevice{};                              /**< Vulkan physical device object (for used device
-                                                                       *    representation) */
-    VkPhysicalDeviceFeatures vkPhysicalDeviceFeatures{};              ///< Main device features to set for chosen device
-    std::optional<uint32_t> vkPhysicalDeviceSelectedQueueFamily;      ///< Queue family chosen for the main device
-    std::optional<uint32_t> vkPhysicalDeviceSelectedPresentFamily;    ///< Present family chosen for the mail device
-    std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;          ///< List of available surface color spaces for the surface
-    std::vector<VkPresentModeKHR> surfacePresentationModes;           ///< List of available presentation modes for the surface
-};
-
-struct VIEModuleSurface {
-    VkSurfaceKHR surface{};                                 ///< Window surface for GLFW
-
-    VkSurfaceFormatKHR chosenSurfaceFormat{};               ///< Window surface chosen format and color space
-    VkPresentModeKHR chosenSurfacePresentationMode{};       /**< Window surface images refresh and representation mode
-                                                             *    on surface */
-    VkSurfaceCapabilitiesKHR surfaceCapabilities{};         ///< Window surface capabilities for swap chain implementation
-};
-
-struct VIEModuleSwapChain {
-    VkSwapchainKHR swapChain{};                             ///< Swap chain system for framebuffers queue management
-    VkExtent2D chosenSwapExtent{};                          ///< Swap chain images resolution definition
-
-    std::vector<VkImage> swapChainImages{};                 ///< Swap chain extracted images
-    std::vector<VkImageView> swapChainImageViews{};         ///< Swap chain extracted image viewers
-};
-
-// TODO Add functions for inserting vertex shaders (use std::optional for understanding access)
-// TODO create two of those pipelines for shadow-mapping, offline rendering and viewport visualization
-// TODO create shader pipeline list with drawing functions in order to customise experience (use custom constructors)
-// TODO separate all submodules into structs with their createinfo structs and with their creation functions for multiple calls
-struct VIEModuleShaderPipeline {
-    /* Rendering phases:
-     * - Phase 0: Vertex input      (mandatory step for defining input data structure at the beginning of the shader
-     *                               rendering process)
-     * - Phase 1: Input assembly    (mandatory step for data type given to a shader)
-     * - Phase 2: Vertex shader     (mandatory step for vertex processing (from local space to NDC space, through world
-     *                               space, view space and clip space)
-     * - Phase 3: Tessellation      (optional step for geometry refinement and mesh quality increase)
-     * - Phase 4: Geometry shader   (optional step or geometry handling basing on geometry type)
-     * - Phase 5: Rasterization     (mandatory step for geometry discretization from tridimensional (space) to
-     *                               bidimensional (viewport) space)
-     * - Phase 6: Fragment shader   (mandatory step for pixel processing and information selection (like depth test))
-     * - Phase 7: Color blending    (mandatory step for color combination between previous and current framebuffer data)
-     * - Phase 8: Framebuffer display into viewport
-     */
-
-    std::unique_ptr<VIEUberShader> uberShader;
-
-    // TODO std::optional viewport
-    ///< Viewport definition for rendering output
-    VkViewport viewport{};  // TODO set as an array for
-
-    ///< Viewport scissor for entire or cut viewport display
-    VkRect2D scissorRectangle{};
-};
+/* Rendering phases:
+ * - Phase 0: Vertex input      (mandatory step for defining input data structure at the beginning of the shader
+ *                               rendering process)
+ * - Phase 1: Input assembly    (mandatory step for data type given to a shader)
+ * - Phase 2: Vertex shader     (mandatory step for vertex processing (from local space to NDC space, through world
+ *                               space, view space and clip space)
+ * - Phase 3: Tessellation      (optional step for geometry refinement and mesh quality increase)
+ * - Phase 4: Geometry shader   (optional step or geometry handling basing on geometry type)
+ * - Phase 5: Rasterization     (mandatory step for geometry discretization from tridimensional (space) to
+ *                               bidimensional (viewport) space)
+ * - Phase 6: Fragment shader   (mandatory step for pixel processing and information selection (like depth test))
+ * - Phase 7: Color blending    (mandatory step for color combination between previous and current framebuffer data)
+ * - Phase 8: Framebuffer display into viewport
+ */
 
 /**
  * @brief VIEngine class representing Vulkan engine
@@ -111,29 +56,26 @@ class VIEngine {
 
     // TODO check which of these elements could be freed from memory after prepareEngine
     // GLFW
-    VIEModuleNativeWindow mNativeWindow;                    ///< Module for native window
+    GLFWwindow *glfwWindow{};           ///< GLFW window pointer
 
     // Vulkan instance
-    VkInstance vkInstance{};                                ///< Vulkan runtime instance
-
-    // Vulkan physical device
-    VIEModuleMainPhysicalDevice mPhysicalDevice;            ///< Module for main physical device for rendering
+    VkInstance vkInstance{};            ///< Vulkan runtime instance
 
     // Vulkan logic device
-    VkDevice vkDevice{};                                    /**< Vulkan logical device object (for state, resources
-                                                             *    used by instance) */
+    VkDevice vkDevice{};                ///< Vulkan logical device object (for state, resources used by instance)
 
     VkShaderModule vertexModule{};
     VkShaderModule fragmentModule{};
 
     // Vulkan window surface
-    VIEModuleSurface mSurface;                              ///< Module for rendering window surface
+    VkSurfaceKHR surface{};             ///< Window surface for GLFW
 
     // Vulkan swap chain
-    VIEModuleSwapChain mSwapChain;                          ///< Module for rendering framebuffer behaviour
+    VkSwapchainKHR swapChain{};          ///< Swap chain system for framebuffers queue management
+    std::vector<VkImageView> swapChainImageViews{};         ///< Swap chain extracted image viewers
 
     // Vulkan rendering pipeline
-    VIEModuleShaderPipeline mShaderPipeline;                ///< Module for rendering pipeline definition
+    std::unique_ptr<VIEUberShader> uberShader;
 
     ///<
     VkRenderPass renderPass{};
@@ -148,19 +90,10 @@ class VIEngine {
     VkSemaphore imageAvailableSemaphore;
     VkSemaphore renderFinishedSemaphore;
 
-    // Vulkan queue family
-    float mainQueueFamilyPriority = 1.0f;                   ///< Main queue family priority
-
     // Vulkan graphics queue
     VkQueue graphicsQueue{};                                ///< Main rendering queue
     VkQueue presentQueue{};                                 ///< Main frame representation queue
 
-    /**
-     * @brief VIEngine::checkDeviceExtensionSupport checks if a device supports the defined list of Vulkan extensions
-     * @param device VkPhysicalDevice to be checked
-     * @return true if the device is compatible, false otherwise
-     */
-    bool checkDeviceExtensionSupport(const VkPhysicalDevice &device);
 
     /**
      * @brief VIEngine::checkQueueFamilyCompatibilityWithDevice checks if a device is compatible with specified queue
