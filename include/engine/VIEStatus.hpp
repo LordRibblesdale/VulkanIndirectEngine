@@ -20,32 +20,40 @@ enum class VIEStatus : uint8_t {
     VULKAN_DEVICE_CREATED               = 16,   ///< Vulkan logic device created state
     VULKAN_SWAP_CHAIN_CREATED           = 17,   ///< Vulkan device swap chain created state
     VULKAN_IMAGE_VIEWS_CREATED          = 18,   ///< Vulkan image views created state
-    VULKAN_GRAPHICS_PIPELINE_GENERATED  = 19,   ///< Vulkan graphics pipeline generated state
+    VULKAN_SHADERS_COMPILED             = 19,   ///< Vulkan graphics pipeline generated state
+    VULKAN_PIPELINE_STATES_PREPARED     = 20,   ///<
+    VULKAN_RENDER_PASSES_GENERATED      = 21,   ///<
+    VULKAN_GRAPHICS_PIPELINE_GENERATED  = 22,   ///<
+    VULKAN_FRAMEBUFFERS_CREATED         = 23,   ///<
+    VULKAN_COMMAND_POOL_CREATED         = 24,   ///<
+    VULKAN_COMMAND_BUFFERS_PREPARED     = 25,   ///<
+    VULKAN_SEMAPHORES_CREATED           = 26,   ///<
 };
 
-inline std::string fromVIEStatusToString(VIEStatus status) {
+// inline std::string fromVIEStatusToString(VIEStatus status) {
+inline std::ostream& operator<<(std::ostream& ostream, VIEStatus status) {
     switch (status) {
         case VIEStatus::UNINITIALISED:
-            return "UNINITIALISED";
+            return ostream << "UNINITIALISED";
         case VIEStatus::SETTINGS_LOADED:
-            return "SETTINGS_LOADED";
+            return ostream << "SETTINGS_LOADED";
         case VIEStatus::GLFW_LOADED:
-            return "GLFW_LOADED";
+            return ostream << "GLFW_LOADED";
         case VIEStatus::VULKAN_SURFACE_CREATED:
-            return "VULKAN_SURFACE_CREATED";
+            return ostream << "VULKAN_SURFACE_CREATED";
         case VIEStatus::VULKAN_INSTANCE_CREATED:
-            return "VULKAN_INSTANCE_CREATED";
+            return ostream << "VULKAN_INSTANCE_CREATED";
         case VIEStatus::VULKAN_PHYSICAL_DEVICES_PREPARED:
-            return "VULKAN_PHYSICAL_DEVICES_PREPARED";
+            return ostream << "VULKAN_PHYSICAL_DEVICES_PREPARED";
         case VIEStatus::VULKAN_DEVICE_CREATED:
-            return "VULKAN_DEVICE_CREATED";
+            return ostream << "VULKAN_DEVICE_CREATED";
         case VIEStatus::VULKAN_SWAP_CHAIN_CREATED:
-            return "VULKAN_SWAP_CHAIN_CREATED";
+            return ostream << "VULKAN_SWAP_CHAIN_CREATED";
         case VIEStatus::VULKAN_IMAGE_VIEWS_CREATED:
-            return "VULKAN_IMAGE_VIEWS_CREATED";
-        case VIEStatus::VULKAN_GRAPHICS_PIPELINE_GENERATED:
-            return "VULKAN_GRAPHICS_PIPELINE_GENERATED";
+            return ostream << "VULKAN_IMAGE_VIEWS_CREATED";
+        case VIEStatus::VULKAN_SHADERS_COMPILED:
+            return ostream << "VULKAN_SHADERS_COMPILED";
         default:
-            return "[ERROR: VIEStatus not recognised]";
+            return ostream << "[ERROR: VIEStatus not recognised]";
     }
 }

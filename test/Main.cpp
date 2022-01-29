@@ -2,8 +2,8 @@
  * MIT License
  */
 
-#include "../engine/VIESettings.hpp"
-#include "../engine/VIEngine.hpp"
+#include "engine/VIESettings.hpp"
+#include "engine/VIEngine.hpp"
 
 /**
  * @brief Main function of IndirectEngine
@@ -17,9 +17,13 @@ int main(int argc, char** argv) {
 
     settings.setPreferredDeviceSelection([](VkPhysicalDevice& device) {
         VkPhysicalDeviceProperties deviceProperties;
+        VkPhysicalDeviceFeatures deviceFeatures;
         vkGetPhysicalDeviceProperties(device, &deviceProperties);
+        vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
-        return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+        // TODO set as default (multidrawindirect?)
+        return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+               deviceFeatures.multiDrawIndirect && deviceFeatures.multiViewport;
     });
 
     settings.addValidationLayer("VK_LAYER_KHRONOS_validation");
@@ -32,5 +36,6 @@ int main(int argc, char** argv) {
     std::cout << "Sizeof VIESettings: " << sizeof(VIESettings) << " bytes" << std::endl;
     auto engine(std::make_unique<VIEngine>(settings));
     engine->prepareEngine();
+    engine->runEngine();
     engine.reset();
 }

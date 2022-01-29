@@ -2,24 +2,24 @@
  * MIT License
  */
 
-#include "VIESettings.hpp"
+#include "engine/VIESettings.hpp"
 
-void VIESettings::addDeviceExtension(const char* extension) {
+void VIESettings::addDeviceExtension(const char *extension) {
     deviceExtensions.push_back(extension);
 }
 
-void VIESettings::addValidationLayer(const char* validationLayer) {
+void VIESettings::addValidationLayer(const char *validationLayer) {
     validationLayers.push_back(validationLayer);
 }
 
 bool VIESettings::getExtensionsCompatibility(const std::vector<VkExtensionProperties> &availableExtensions) {
     return std::ranges::all_of(
             deviceExtensions,
-            [&availableExtensions](const char*& extension) {
+            [&availableExtensions](const char *&extension) {
                 std::string extensionStr(extension);
                 auto foundExtension =
                         std::ranges::find_if(availableExtensions,
-                                             [&extensionStr](const VkExtensionProperties& extensionProperties) {
+                                             [&extensionStr](const VkExtensionProperties &extensionProperties) {
                                                  return extensionStr == extensionProperties.extensionName;
                                              });
 
@@ -32,16 +32,16 @@ bool VIESettings::areValidationLayersEmpty() const {
     return validationLayers.empty();
 }
 
-bool VIESettings::isPreferableDevice(VkPhysicalDevice& device) const {
+bool VIESettings::isPreferableDevice(VkPhysicalDevice &device) const {
     return preferredDeviceSelectionFunction && preferredDeviceSelectionFunction(device);
 }
 
 uint32_t VIESettings::getDefaultXRes() const {
-    return DEFAULT_X_RES;
+    return kDefaultXRes;
 }
 
 uint32_t VIESettings::getDefaultYRes() const {
-    return DEFAULT_Y_RES;
+    return kDefaultYRes;
 }
 
 VkPresentModeKHR VIESettings::getRefreshMode() const {
@@ -49,10 +49,10 @@ VkPresentModeKHR VIESettings::getRefreshMode() const {
 }
 
 std::vector<VkSurfaceFormatKHR>::iterator
-VIESettings::findSurfaceFormat(std::vector<VkSurfaceFormatKHR>& surfaceAvailableFormats) const {
+VIESettings::findSurfaceFormat(std::vector<VkSurfaceFormatKHR> &surfaceAvailableFormats) const {
     return std::ranges::find_if(
             surfaceAvailableFormats,
-            [this](const VkSurfaceFormatKHR& surfaceFormat) {
+            [this](const VkSurfaceFormatKHR &surfaceFormat) {
                 return (std::ranges::find(defaultFormats, surfaceFormat.format) != defaultFormats.end()) &&
                        surfaceFormat.colorSpace == defaultColorSpace;
             });

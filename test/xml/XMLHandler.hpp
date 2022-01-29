@@ -5,7 +5,7 @@
 #pragma once
 
 #include <string>
-#include "../../engine/VIESettings.hpp"
+#include "../../include/engine/VIESettings.hpp"
 
 class XMLHandler {
 public:
