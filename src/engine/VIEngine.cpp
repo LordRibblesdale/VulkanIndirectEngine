@@ -193,8 +193,9 @@ bool VIEngine::prepareEngine() {
                 glfwGetWin32Window(glfwWindow)                      // hwnd
         };
 
-        return_log_if(vkCreateWin32SurfaceKHR(vkInstance, &ntWindowSurfaceCreationInfo, nullptr, &surface) != VK_SUCCESS,
-                      "Cannot create native NT window surface to bind to Vulkan...", false)
+        return_log_if(
+                vkCreateWin32SurfaceKHR(vkInstance, &ntWindowSurfaceCreationInfo, nullptr, &surface) != VK_SUCCESS,
+                "Cannot create native NT window surface to bind to Vulkan...", false)
 #elif __linux__
         // Creating Vulkan surface based on Wayland native bindings
         // TODO see if in Windows this creation type is compatible
@@ -206,7 +207,7 @@ bool VIEngine::prepareEngine() {
         return true;
     });
 
-    auto preparePhysicalDevice([this, &vkPhysicalDevice,  &selectedPresentFamily, &selectedQueueFamily,
+    auto preparePhysicalDevice([this, &vkPhysicalDevice, &selectedPresentFamily, &selectedQueueFamily,
                                        &surfaceCapabilities, &surfaceAvailableFormats]() {
         // Looking for devices
         uint32_t devicesCount = 0;
@@ -219,7 +220,8 @@ bool VIEngine::prepareEngine() {
         vkEnumeratePhysicalDevices(vkInstance, &devicesCount, availableDevices.data());
 
         erase_if(availableDevices, [this](const VkPhysicalDevice &physicalDevice) {
-            return settings.preferredDeviceSelectionFunction ? !settings.preferredDeviceSelectionFunction(physicalDevice)
+            return settings.preferredDeviceSelectionFunction ? !settings.preferredDeviceSelectionFunction(
+                    physicalDevice)
                                                              : true;
         });
 
@@ -228,13 +230,14 @@ bool VIEngine::prepareEngine() {
 
         // Selecting and sorting devices
         // For one device, the selection is at the beginning of availableDevices vector
-        for (VkPhysicalDevice &device : availableDevices) {
+        for (VkPhysicalDevice &device: availableDevices) {
             std::optional<uint32_t> mainDeviceSelectedQueueFamily;
             std::optional<uint32_t> mainDeviceSelectedPresentFamily;
             std::vector<VkSurfaceFormatKHR> surfaceFormats;
             std::vector<VkPresentModeKHR> surfacePresentModes;
 
-            bool isDeviceCompatibleWithExtensions = tools::checkDeviceExtensionSupport(device, settings.deviceExtensions);
+            bool isDeviceCompatibleWithExtensions = tools::checkDeviceExtensionSupport(device,
+                                                                                       settings.deviceExtensions);
 
             // TODO optimize those two checks
             bool isDeviceCompatibleWithQueueFamily =
@@ -264,7 +267,8 @@ bool VIEngine::prepareEngine() {
 
         if (formatCount != 0) {
             surfaceAvailableFormats.resize(formatCount);
-            vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice, surface, &formatCount, surfaceAvailableFormats.data());
+            vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice, surface, &formatCount,
+                                                 surfaceAvailableFormats.data());
         }
 
         return true;
@@ -336,7 +340,8 @@ bool VIEngine::prepareEngine() {
         }
 
         // Setting the number of images that the swap chain needs to create, depending on a necessary minimum and maximum
-        uint32_t swapChainImagesCount = std::min(surfaceCapabilities.minImageCount + 1, surfaceCapabilities.maxImageCount);
+        uint32_t swapChainImagesCount = std::min(surfaceCapabilities.minImageCount + 1,
+                                                 surfaceCapabilities.maxImageCount);
 
         // Choosing frame handling mode by swap chain
         std::array<uint32_t, 2> queueIndices({selectedQueueFamily.value(),
@@ -379,7 +384,7 @@ bool VIEngine::prepareEngine() {
         swapChainImageViews.resize(swapChainImages.size());
 
         // TODO complete component names (not only last one)
-        for (size_t i = 0; VkImageView &imageView : swapChainImageViews) {
+        for (size_t i = 0; VkImageView &imageView: swapChainImageViews) {
             VkImageViewCreateInfo imageViewCreationInfo{
                     VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,           // sType
                     nullptr,                                            // pNext
@@ -430,8 +435,9 @@ bool VIEngine::prepareEngine() {
                 nullptr                                                 // pPushConstantRanges
         };
 
-        return_log_if(vkCreatePipelineLayout(vkDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout) != VK_SUCCESS,
-                      "Failed to create pipeline layout...", false)
+        return_log_if(
+                vkCreatePipelineLayout(vkDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout) != VK_SUCCESS,
+                "Failed to create pipeline layout...", false)
 
         return true;
     });
@@ -553,7 +559,7 @@ bool VIEngine::prepareEngine() {
                 1.0f                                            // maxDepth
         };
 
-        VkRect2D scissorRectangle {
+        VkRect2D scissorRectangle{
                 {0, 0},             // offset
                 chosenSwapExtent    // extent
         };
@@ -580,11 +586,11 @@ bool VIEngine::prepareEngine() {
                 VK_FALSE,                                                   // rasterizerDiscardEnable
                 VK_POLYGON_MODE_FILL,                                       // polygonMode
                 VK_CULL_MODE_BACK_BIT,                                      // cullMode                 // FRONT for Shadow Mapping
-                VK_FRONT_FACE_COUNTER_CLOCKWISE,                            // frontFace
+                VK_FRONT_FACE_CLOCKWISE,                                    // frontFace
                 VK_FALSE,                                                   // depthBiasEnable
-                0,                                                          // depthBiasConstantFactor
-                VK_FALSE,                                                   // depthClampEnable
-                0,                                                          // depthBiasSlopeFactor
+                0.0f,                                                       // depthBiasConstantFactor
+                0.0f,                                                       // depthBiasClamp
+                0.0f,                                                       // depthBiasSlopeFactor
                 1.0f                                                        // lineWidth
         };
 
@@ -593,9 +599,9 @@ bool VIEngine::prepareEngine() {
                 VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,   // sType
                 nullptr,                                                    // pNext
                 0,                                                          // flags
-                VK_SAMPLE_COUNT_4_BIT,                                      // rasterizationSamples
+                VK_SAMPLE_COUNT_1_BIT,                                      // rasterizationSamples
                 VK_FALSE,                                                   // sampleShadingEnable
-                1.0f,                                                       // sampleShadingEnable
+                1.0f,                                                       // minSampleShading
                 nullptr,                                                    // pSampleMask
                 VK_FALSE,                                                   // alphaToCoverageEnable
                 VK_FALSE                                                    // alphaToOneEnable
@@ -606,12 +612,12 @@ bool VIEngine::prepareEngine() {
 
         // https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Fixed_functions
         VkPipelineColorBlendAttachmentState colorBlendAttachmentState{
-                VK_TRUE,                                // blendEnable
+                VK_FALSE,                               // blendEnable
                 VK_BLEND_FACTOR_ONE,                    // srcColorBlendFactor
-                VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR,    // dstColorBlendFactor
+                VK_BLEND_FACTOR_ZERO,                   // dstColorBlendFactor
                 VK_BLEND_OP_ADD,                        // colorBlendOp
                 VK_BLEND_FACTOR_ONE,                    // srcAlphaBlendFactor
-                VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,    // dstAlphaBlendFactor
+                VK_BLEND_FACTOR_ZERO,                   // dstAlphaBlendFactor
                 VK_BLEND_OP_ADD,                        // alphaBlendOp
                 VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
                 VK_COLOR_COMPONENT_A_BIT                // colorWriteMask
@@ -621,7 +627,7 @@ bool VIEngine::prepareEngine() {
                 VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,   // sType
                 nullptr,                                                    // pNext
                 0,                                                          // flags
-                VK_TRUE,                                                    // logicOpEnable
+                VK_FALSE,                                                   // logicOpEnable
                 VK_LOGIC_OP_COPY,                                           // logicOp
                 1,                                                          // attachmentCount
                 &colorBlendAttachmentState,                                 // pAttachments
@@ -683,7 +689,8 @@ bool VIEngine::prepareEngine() {
                     1                                           // layers
             };
 
-            return_log_if(vkCreateFramebuffer(vkDevice, &framebufferCreateInfo, nullptr, &swapChainFramebuffers.at(i)) != VK_SUCCESS,
+            return_log_if(vkCreateFramebuffer(vkDevice, &framebufferCreateInfo, nullptr,
+                                              &swapChainFramebuffers.at(i)) != VK_SUCCESS,
                           fmt::format("Cannot create framebuffer {}", i), false)
 
             ++i;
@@ -717,8 +724,9 @@ bool VIEngine::prepareEngine() {
                 static_cast<uint32_t>(commandBuffers.size())        // commandBufferCount
         };
 
-        return_log_if(vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, commandBuffers.data()) != VK_SUCCESS,
-                      "Cannot create command buffers...", false)
+        return_log_if(
+                vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, commandBuffers.data()) != VK_SUCCESS,
+                "Cannot create command buffers...", false)
 
         // TODO integrate custom render pass and draw commands so that others could implement their shaders and related commands
         //  maybe to split in separate function in order to implement one or more lambdas
@@ -766,9 +774,10 @@ bool VIEngine::prepareEngine() {
                 0                                           // flags
         };
 
-        return_log_if((vkCreateSemaphore(vkDevice, &semaphoreCreateInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
-                       vkCreateSemaphore(vkDevice, &semaphoreCreateInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS),
-                      "Cannot create semaphores...", false)
+        return_log_if(
+                (vkCreateSemaphore(vkDevice, &semaphoreCreateInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
+                 vkCreateSemaphore(vkDevice, &semaphoreCreateInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS),
+                "Cannot create semaphores...", false)
 
         return true;
     });
@@ -827,7 +836,7 @@ void VIEngine::runEngine() {
     }
 
     // TODO create function for defining key and mouse inputs
-    while(!glfwWindowShouldClose(glfwWindow)) {
+    while (!glfwWindowShouldClose(glfwWindow)) {
         glfwPollEvents();
 
         if (!drawFrame()) {
@@ -843,7 +852,7 @@ bool VIEngine::drawFrame() {
     vkAcquireNextImageKHR(vkDevice, swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
     // TODO move as constant
-    std::array<VkPipelineStageFlags, 1> waitStages {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    std::array<VkPipelineStageFlags, 1> waitStages{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSubmitInfo submitInfo{
             VK_STRUCTURE_TYPE_SUBMIT_INFO,  // sType
             nullptr,                        // pNext
