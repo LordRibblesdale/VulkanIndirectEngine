@@ -71,13 +71,27 @@ class VIEngine {
     VkSurfaceKHR surface{};             ///< Window surface for GLFW
 
     // Vulkan swap chain
-    VkSwapchainKHR swapChain{};          ///< Swap chain system for framebuffers queue management
+    std::optional<uint32_t> selectedQueueFamily;            ///< Queue family chosen for the main device
+    std::optional<uint32_t> selectedPresentFamily;          ///< Present family chosen for the mail device
+    std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;    ///< List of available surface color spaces for the surface
+    std::vector<VkPresentModeKHR> surfacePresentationModes;     ///< List of available presentation modes for the surface
+    VkSurfaceFormatKHR chosenSurfaceFormat{};               ///< Window surface chosen format and color space
+    VkPresentModeKHR chosenSurfacePresentationMode{};       /**< Window surface images refresh and representation mode
+                                                             *    on surface */
+    VkExtent2D chosenSwapExtent{};                          ///< Swap chain images resolution definition
+    VkSurfaceCapabilitiesKHR surfaceCapabilities{};         ///< Window surface capabilities for swap chain implementation
+    std::vector<VkImage> swapChainImages{};                 ///< Swap chain extracted images
     std::vector<VkImageView> swapChainImageViews{};         ///< Swap chain extracted image viewers
+    VkSwapchainKHR swapChain{};          ///< Swap chain system for framebuffers queue management
 
     // Vulkan rendering pipeline
     std::unique_ptr<VIEUberShader> uberShader;
 
     ///<
+    std::array<VkDynamicState, 2> dynamicStates{
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_LINE_WIDTH
+    };
     VkRenderPass renderPass{};
     VkPipelineLayout pipelineLayout{};
     VkPipeline graphicsPipeline{};
@@ -121,6 +135,17 @@ class VIEngine {
                                                    std::vector<VkPresentModeKHR> &surfacePresentationModes);
 
     [[nodiscard]] bool drawFrame();
+
+    bool createSwapchains();
+    bool createImageViews();
+    bool prepareRenderPasses();
+    bool generateGraphicsPipeline();
+    bool initializeFramebuffers();
+    bool prepareCommandBuffers();
+
+    bool recreateSwapchain();
+
+    void cleanSwapchain();
 
 public:
     VIEngine() = delete;

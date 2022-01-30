@@ -19,6 +19,8 @@
  * @brief VIESettings structure for data access around the engine
  */
 struct VIESettings {
+    bool enableMessageCallback = true;
+
     std::vector<const char*> validationLayers;    ///< Vulkan validation layers for text/debug output
 
     ///< Vulkan device extensions for additional API support
@@ -30,7 +32,7 @@ struct VIESettings {
     uint32_t yRes;                        ///< Vertical window resolution
 
     ///< Lambda for preferred PhysicalDevice choice
-    std::function<bool(const VkPhysicalDevice &)> preferredDeviceSelectionFunction{};
+    std::function<bool(const VkPhysicalDevice &)> isPreferrableDevice{};
 
     VkPresentModeKHR preferredPresentMode;                ///< Frame limiter handler
 
@@ -75,6 +77,6 @@ struct VIESettings {
 
     template<typename Predicate>
     inline void setPreferredDeviceSelection(Predicate &&predicate) {
-        preferredDeviceSelectionFunction = std::forward<Predicate>(predicate);
+        isPreferrableDevice = std::forward<Predicate>(predicate);
     }
 };

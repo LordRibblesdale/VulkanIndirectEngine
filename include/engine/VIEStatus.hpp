@@ -28,6 +28,7 @@ enum class VIEStatus : uint8_t {
     VULKAN_COMMAND_POOL_CREATED         = 24,   ///<
     VULKAN_COMMAND_BUFFERS_PREPARED     = 25,   ///<
     VULKAN_SEMAPHORES_CREATED           = 26,   ///<
+    VULKAN_ENGINE_RUNNING               = 27,   ///<
 };
 
 // inline std::string fromVIEStatusToString(VIEStatus status) {
