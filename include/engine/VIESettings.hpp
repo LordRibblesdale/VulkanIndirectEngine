@@ -50,15 +50,13 @@ struct VIESettings {
     const uint32_t kEngineVersion{VK_MAKE_API_VERSION(0, 1, 0, 0)};    ///< Engine version
 
     const std::string kApplicationName;          ///< Application name
-    const uint32_t kAppMajorVersion;             ///< Application major version
-    const uint32_t kAppMinorVersion;             ///< Application minor version
-    const uint32_t kAppPatchVersion;             ///< Application patch version
     const uint32_t kApplicationVersion;
-
     const std::string kApplicationProgramName;   ///< Combined application name and version
 
     const uint32_t kDefaultXRes;
     const uint32_t kDefaultYRes;
+
+    const uint8_t kMaxFramesInFlight{2};
 
     VIESettings() = delete;
 
@@ -66,7 +64,6 @@ struct VIESettings {
                 uint32_t appPatchVersion, uint32_t xRes, uint32_t yRes,
                 VkPresentModeKHR refreshMode = VK_PRESENT_MODE_IMMEDIATE_KHR)
             : xRes(xRes), yRes(yRes), preferredPresentMode(refreshMode), kApplicationName(applicationName),
-              kAppMajorVersion(appMajorVersion), kAppMinorVersion(appMinorVersion), kAppPatchVersion(appPatchVersion),
               kApplicationVersion(VK_MAKE_API_VERSION(0, appMajorVersion, appMinorVersion, appPatchVersion)),
               kApplicationProgramName(fmt::format("{} - {}.{}.{}", applicationName, appMajorVersion, appMinorVersion,
                                                   appPatchVersion)), kDefaultXRes(xRes), kDefaultYRes(yRes) {}

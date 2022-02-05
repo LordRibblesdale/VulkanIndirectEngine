@@ -62,6 +62,7 @@ class VIEUberShader {
         vkShaderModuleCreateInfo.pCode = spirvCode.data();
 
         VkShaderModule shaderModule;
+        // TODO align code here with define
         if (vkCreateShaderModule(logicDevice, &vkShaderModuleCreateInfo, nullptr, &shaderModule) != VK_SUCCESS) {
             std::cout << "Error creating VkShaderModule from SPIR-V code" << std::endl;
             return nullptr;

@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
-project(IndirectEngine)
+project(VIEngine)
 
 set(CMAKE_CXX_STANDARD 20)
-set(EXECUTABLE "${PROJECT_NAME}")
 
 message("Welcome to VulkanIndirectEngine CMake script - CMakeVersion ${CMAKE_VERSION} C++${CMAKE_CXX_STANDARD}")
 
@@ -13,17 +12,14 @@ file(GLOB_RECURSE src "src/*.cpp")
 file(GLOB_RECURSE include "include/*.hpp")
 file(GLOB_RECURSE test "test/*.cpp" "test/*.hpp")
 
-set(STATIC_LIB ${PROJECT_NAME}_static)
-set(SHARED_LIB ${PROJECT_NAME}_shared)
-
 message("- Adding source files into static library")
-add_library(${STATIC_LIB} STATIC ${src} ${include})
+add_library(vie_static STATIC ${src})
 
 message("- Adding source files into dynamic library")
-add_library(${SHARED_LIB} SHARED ${src} ${include})
+add_library(vie_shared SHARED ${src})
 
 message("- Adding source files into test project...")
-add_executable(${PROJECT_NAME}
+add_executable(VIEngine
         ${src}
         ${include}
         ${test})
@@ -44,17 +40,14 @@ endif()
 message("-> Linking libraries...")
 foreach(LIB IN LISTS LIBRARIES_LIST)
     message("-- Library ${LIB}")
-    target_link_libraries(${PROJECT_NAME} ${LIB})
-    target_link_libraries(${STATIC_LIB} ${LIB})
-    target_link_libraries(${SHARED_LIB} ${LIB})
+    target_link_libraries(VIEngine ${LIB})
+    target_link_libraries(vie_static ${LIB})
+    target_link_libraries(vie_shared ${LIB})
 endforeach()
 
 message("")
 
 message("- Copying needed data for execution (ONLY FOR TESTING PURPOSES)...")
-if (WIN32)
-    set(EXECUTABLE "${EXECUTABLE}.exe")
-endif()
 
 file(COPY "${CMAKE_SOURCE_DIR}/build/data" DESTINATION "${CMAKE_BINARY_DIR}")
 file(COPY "${CMAKE_SOURCE_DIR}/build/languages" DESTINATION "${CMAKE_BINARY_DIR}")

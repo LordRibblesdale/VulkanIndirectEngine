@@ -4,15 +4,14 @@
 
 #pragma once
 
-// Including Vulkan graphic libraries
+// Exposing Vulkan libraries to native window manager
 #ifdef _WIN64
 #define VK_USE_PLATFORM_WIN32_KHR
 #elif __linux__
 #define VK_USE_PLATFORM_WAYLAND_KHR
 #endif
-// #include <vulkan/vulkan.hpp>
 
-// Including GLFW window manager
+// Exposing Vulkan libraries to GLFW
 #define GLFW_INCLUDE_VULKAN
 #ifdef _WIN64
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -21,6 +20,7 @@
 #define GLFW_EXPOSE_NATIVE_WAYLAND
 #endif
 
+// Including GLFW
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
@@ -28,9 +28,11 @@
 #include <optional>
 #include <iostream>
 #include <algorithm>
+
 #include "VIEStatus.hpp"
 #include "VIESettings.hpp"
 #include "VIEUberShader.hpp"
+#include "tools/VIETools.hpp"
 
 /* Rendering phases:
  * - Phase 0: Vertex input      (mandatory step for defining input data structure at the beginning of the shader
@@ -71,18 +73,18 @@ class VIEngine {
     VkSurfaceKHR surface{};             ///< Window surface for GLFW
 
     // Vulkan swap chain
-    std::optional<uint32_t> selectedQueueFamily;            ///< Queue family chosen for the main device
-    std::optional<uint32_t> selectedPresentFamily;          ///< Present family chosen for the mail device
+    uint32_t selectedQueueFamily{kUint32Max};                   ///< Queue family chosen for the main device
+    uint32_t selectedPresentFamily{kUint32Max};                 ///< Present family chosen for the mail device
     std::vector<VkSurfaceFormatKHR> surfaceAvailableFormats;    ///< List of available surface color spaces for the surface
     std::vector<VkPresentModeKHR> surfacePresentationModes;     ///< List of available presentation modes for the surface
-    VkSurfaceFormatKHR chosenSurfaceFormat{};               ///< Window surface chosen format and color space
-    VkPresentModeKHR chosenSurfacePresentationMode{};       /**< Window surface images refresh and representation mode
-                                                             *    on surface */
-    VkExtent2D chosenSwapExtent{};                          ///< Swap chain images resolution definition
-    VkSurfaceCapabilitiesKHR surfaceCapabilities{};         ///< Window surface capabilities for swap chain implementation
-    std::vector<VkImage> swapChainImages{};                 ///< Swap chain extracted images
-    std::vector<VkImageView> swapChainImageViews{};         ///< Swap chain extracted image viewers
-    VkSwapchainKHR swapChain{};          ///< Swap chain system for framebuffers queue management
+    VkSurfaceFormatKHR chosenSurfaceFormat{};                   ///< Window surface chosen format and color space
+    VkPresentModeKHR chosenSurfacePresentationMode{};           /**< Window surface images refresh and representation mode
+                                                                 *    on surface */
+    VkExtent2D chosenSwapExtent{};                              ///< Swap chain images resolution definition
+    VkSurfaceCapabilitiesKHR surfaceCapabilities{};             ///< Window surface capabilities for swap chain implementation
+    std::vector<VkImage> swapChainImages{};                     ///< Swap chain extracted images
+    std::vector<VkImageView> swapChainImageViews{};             ///< Swap chain extracted image viewers
+    VkSwapchainKHR swapChain{};                                  ///< Swap chain system for framebuffers queue management
 
     // Vulkan rendering pipeline
     std::unique_ptr<VIEUberShader> uberShader;
@@ -101,40 +103,18 @@ class VIEngine {
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
 
-    VkSemaphore imageAvailableSemaphore;
-    VkSemaphore renderFinishedSemaphore;
+    std::vector<VkSemaphore> imageAvailableSemaphores;
+    std::vector<VkSemaphore> renderFinishedSemaphores;
+    std::vector<VkFence> inFlightFences;
+    std::vector<VkFence> imagesInFlight;
+    uint8_t currentFrame;
 
     // Vulkan graphics queue
     VkQueue graphicsQueue{};                                ///< Main rendering queue
     VkQueue presentQueue{};                                 ///< Main frame representation queue
 
 
-    /**
-     * @brief VIEngine::checkQueueFamilyCompatibilityWithDevice checks if a device is compatible with specified queue
-     *          families
-     * @param device VkPhysicalDevice to be checked
-     * @param selectedSurface Engine selectedSurface for checking device compatibility
-     * @param flags vector list to be checked if available for the given device
-     * @return true if the device is valid, false otherwise
-     */
-    bool checkQueueFamilyCompatibilityWithDevice(const VkPhysicalDevice &device, VkSurfaceKHR &selectedSurface,
-                                                 std::optional<uint32_t> &queueFamilyIndex,
-                                                 std::optional<uint32_t> &presentQueueFamilyIndex);
-
-    /**
-     * @brief VIEngine::checkSurfaceCapabilitiesFromDevice checks if a surface, related to its device, supports a set of
-     *          defined color spaces and frame presentation modes
-     * @param device VKPhysicalDevice to be checked
-     * @param surface VkSurfaceKHR to be checked
-     * @param surfaceAvailableFormats list of required surface formats
-     * @param surfacePresentationModes list of required presentation modes
-     */
-    static bool checkSurfaceCapabilitiesFromDevice(const VkPhysicalDevice &device, VkSurfaceKHR &surface,
-                                                   VkSurfaceCapabilitiesKHR &surfaceCapabilities,
-                                                   std::vector<VkSurfaceFormatKHR> &surfaceAvailableFormats,
-                                                   std::vector<VkPresentModeKHR> &surfacePresentationModes);
-
-    [[nodiscard]] bool drawFrame();
+    bool drawFrame();
 
     bool createSwapchains();
     bool createImageViews();
