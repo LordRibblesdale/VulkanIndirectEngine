@@ -5,12 +5,6 @@
 #include "engine/VIESettings.hpp"
 #include "engine/VIEngine.hpp"
 
-/**
- * @brief Main function of IndirectEngine
- * @param argc number of starting arguments
- * @param argv list of arguments given
- * @return execution return code
- */
 int main(int argc, char** argv) {
     // Reading settings
     VIESettings settings("VulkanIndirectEngine", 1, 0, 0, 1920, 1080, VK_PRESENT_MODE_IMMEDIATE_KHR);

@@ -20,6 +20,11 @@ VIEngine::~VIEngine() {
     }
 }
 
+void VIEngine::framebufferResizeCallback(GLFWwindow *window, int width, int height) {
+    auto engine = static_cast<VIEngine*>(glfwGetWindowUserPointer(window));
+    engine->isFramebufferResized = true;
+}
+
 bool VIEngine::createSwapchains() {
     // Selecting surface format (channels and color space)
     return_log_if(!tools::selectSurfaceFormat(surfaceAvailableFormats, settings.defaultFormat,
@@ -31,20 +36,34 @@ bool VIEngine::createSwapchains() {
                                                                      settings.preferredPresentMode);
 
     // Selecting swap extent (resolution of the swap chain images in pixels)
+    /*
     if (surfaceCapabilities.currentExtent.width != kUint32Max) {
         chosenSwapExtent = surfaceCapabilities.currentExtent;
+        std::cout << fmt::format("W: {}, H: {}", chosenSwapExtent.width, chosenSwapExtent.height) << std::endl;
     } else {
         int width;
         int height;
         glfwGetFramebufferSize(glfwWindow, &width, &height);
+        std::cout << fmt::format("W: {}, H: {}", width, height) << std::endl;
 
         chosenSwapExtent = VkExtent2D{
-                std::clamp(static_cast<uint32_t>(width), surfaceCapabilities.minImageExtent.width,
-                           surfaceCapabilities.maxImageExtent.width),
-                std::clamp(static_cast<uint32_t>(height), surfaceCapabilities.minImageExtent.height,
-                           surfaceCapabilities.maxImageExtent.height)
+                .width = std::clamp(static_cast<uint32_t>(width), surfaceCapabilities.minImageExtent.width,
+                                    surfaceCapabilities.maxImageExtent.width),
+                .height = std::clamp(static_cast<uint32_t>(height), surfaceCapabilities.minImageExtent.height,
+                                     surfaceCapabilities.maxImageExtent.height)
         };
     }
+     */
+    int width;
+    int height;
+    glfwGetFramebufferSize(glfwWindow, &width, &height);
+
+    chosenSwapExtent = VkExtent2D{
+            .width = std::clamp(static_cast<uint32_t>(width), surfaceCapabilities.minImageExtent.width,
+                                surfaceCapabilities.maxImageExtent.width),
+            .height = std::clamp(static_cast<uint32_t>(height), surfaceCapabilities.minImageExtent.height,
+                                 surfaceCapabilities.maxImageExtent.height)
+    };
 
     // Setting the number of images that the swap chain needs to create, depending on a necessary minimum and maximum
     uint32_t swapChainImagesCount = std::min(surfaceCapabilities.minImageCount + 1, surfaceCapabilities.maxImageCount);
@@ -54,25 +73,23 @@ bool VIEngine::createSwapchains() {
 
     // VIESettings how swap chain will be created
     VkSwapchainCreateInfoKHR swapChainCreationInfo{
-            VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,    // sType
-            nullptr,                                        // pNext
-            0,                                              // flags
-            surface,                                        // surface
-            swapChainImagesCount,                           // minImageCount
-            chosenSurfaceFormat.format,                     // imageFormat
-            chosenSurfaceFormat.colorSpace,                 // imageColorSpace
-            chosenSwapExtent,                               // imageExtent
-            1,                                              // imageArrayLayers
-            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,            // imageUsage
-            (selectedQueueFamily != selectedPresentFamily) ? VK_SHARING_MODE_CONCURRENT
-                                                           : VK_SHARING_MODE_EXCLUSIVE, // imageSharingMode
-            (selectedQueueFamily != selectedPresentFamily) ? 2u : 0u,                   // queueFamilyIndexCount
-            (selectedQueueFamily != selectedPresentFamily) ? queueIndices.data() : nullptr, // pQueueFamilyIndices
-            surfaceCapabilities.currentTransform,           // preTransform
-            VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,              // compositeAlpha
-            chosenSurfacePresentationMode,                  // presentMode
-            VK_TRUE,                                        // clipped
-            VK_NULL_HANDLE                                  // oldSwapchain
+            .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+            .surface = surface,
+            .minImageCount = swapChainImagesCount,
+            .imageFormat = chosenSurfaceFormat.format,
+            .imageColorSpace = chosenSurfaceFormat.colorSpace,
+            .imageExtent = chosenSwapExtent,
+            .imageArrayLayers = 1,
+            .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            .imageSharingMode = (selectedQueueFamily != selectedPresentFamily) ? VK_SHARING_MODE_CONCURRENT
+                                                                               : VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = (selectedQueueFamily != selectedPresentFamily) ? 2u : 0u,
+            .pQueueFamilyIndices = (selectedQueueFamily != selectedPresentFamily) ? queueIndices.data() : nullptr,
+            .preTransform = surfaceCapabilities.currentTransform,
+            .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+            .presentMode = chosenSurfacePresentationMode,
+            .clipped = VK_TRUE,
+            .oldSwapchain = VK_NULL_HANDLE
     };
 
     return_log_if(vkCreateSwapchainKHR(vkDevice, &swapChainCreationInfo, nullptr, &swapChain),
@@ -82,29 +99,21 @@ bool VIEngine::createSwapchains() {
     swapChainImages.resize(swapChainImagesCount);
     vkGetSwapchainImagesKHR(vkDevice, swapChain, &swapChainImagesCount, swapChainImages.data());
 
-
-
     return true;
 }
 
 bool VIEngine::createImageViews() {
     swapChainImageViews.resize(swapChainImages.size());
 
-    // TODO complete component names (not only last one)
     for (size_t i = 0; VkImageView &imageView: swapChainImageViews) {
         VkImageViewCreateInfo imageViewCreationInfo{
-                VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,           // sType
-                nullptr,                                            // pNext
-                0,                                                  // flags
-                swapChainImages.at(i),                              // image
-                VK_IMAGE_VIEW_TYPE_2D,                              // viewType
-                chosenSurfaceFormat.format,                         // format
-                VkComponentMapping{VK_COMPONENT_SWIZZLE_IDENTITY,
-                                   VK_COMPONENT_SWIZZLE_IDENTITY,
-                                   VK_COMPONENT_SWIZZLE_IDENTITY,
-                                   VK_COMPONENT_SWIZZLE_IDENTITY},  // components
-                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT,
-                                        0, 1, 0, 1}                 // subresourceRange
+                .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                .image = swapChainImages.at(i),
+                .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                .format = chosenSurfaceFormat.format,
+                .components = VkComponentMapping{VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
+                                                 VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
+                .subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
         };
 
         return_log_if(vkCreateImageView(vkDevice, &imageViewCreationInfo, nullptr, &imageView) != VK_SUCCESS,
@@ -116,57 +125,70 @@ bool VIEngine::createImageViews() {
     return true;
 }
 
+bool VIEngine::prepareFixedPipelineFunctions() {
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .setLayoutCount = 0,
+            .pSetLayouts = nullptr,
+            .pushConstantRangeCount = 0,
+            .pPushConstantRanges = nullptr
+    };
+
+    return_log_if(
+            vkCreatePipelineLayout(vkDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout) != VK_SUCCESS,
+            "Failed to create pipeline layout...", false)
+
+    return true;
+}
+
 bool VIEngine::prepareRenderPasses() {
     VkAttachmentDescription colorAttachment{
-            0,                                      // flags
-            chosenSurfaceFormat.format,             // format
-            VK_SAMPLE_COUNT_1_BIT,                  // samples
-            VK_ATTACHMENT_LOAD_OP_CLEAR,            // loadOp
-            VK_ATTACHMENT_STORE_OP_STORE,           // storeOp
-            VK_ATTACHMENT_LOAD_OP_DONT_CARE,        // stencilLoadOp
-            VK_ATTACHMENT_STORE_OP_DONT_CARE,       // stencilStoreOp
-            VK_IMAGE_LAYOUT_UNDEFINED,              // initialLayout
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR         // finalLayout
+            .format = chosenSurfaceFormat.format,
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
     };
 
     VkAttachmentReference colorAttachmentReference{
-            0,                                          // attachment
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL    // layout
+            .attachment = 0,
+            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
 
     VkSubpassDescription subpassDescription{
-            0,                                          // flags
-            VK_PIPELINE_BIND_POINT_GRAPHICS,            // pipelineBindPoint
-            0,                                          // inputAttachmentCount
-            nullptr,                                    // pInputAttachments
-            1,                                          // colorAttachmentCount
-            &colorAttachmentReference,                  // pColorAttachments
-            nullptr,                                    // pResolveAttachments
-            nullptr,                                    // pDepthStencilAttachment
-            0,                                          // preserveAttachmentCount
-            nullptr                                     // pPreserveAttachments
+            .flags = 0,
+            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+            .inputAttachmentCount = 0,
+            .pInputAttachments = nullptr,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &colorAttachmentReference,
+            .pResolveAttachments = nullptr,
+            .pDepthStencilAttachment = nullptr,
+            .preserveAttachmentCount = 0,
+            .pPreserveAttachments = nullptr
     };
 
     VkSubpassDependency dependency{
-            VK_SUBPASS_EXTERNAL,                            // srcSubpass
-            0,                                              // dstSubpass
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // srcStageMask
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // dstStageMask
-            0,                                              // srcAccessMask
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,           // dstAccessMask
-            0                                               // dependencyFlags
+            .srcSubpass = VK_SUBPASS_EXTERNAL,
+            .dstSubpass = 0,
+            .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .srcAccessMask = 0,
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .dependencyFlags = 0
     };
 
     VkRenderPassCreateInfo renderPassCreateInfo{
-            VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,  // sType
-            nullptr,                                    // pNext
-            0,                                          // flags
-            1,                                          // attachmentCount
-            &colorAttachment,                           // pAttachments
-            1,                                          // subpassCount
-            &subpassDescription,                        // pSubpasses
-            1,                                          // dependencyCount
-            &dependency                                 // pDependencies
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+            .attachmentCount = 1,
+            .pAttachments = &colorAttachment,
+            .subpassCount = 1,
+            .pSubpasses = &subpassDescription,
+            .dependencyCount = 1,
+            .pDependencies = &dependency
     };
 
     return_log_if(vkCreateRenderPass(vkDevice, &renderPassCreateInfo, nullptr, &renderPass) != VK_SUCCESS,
@@ -177,25 +199,22 @@ bool VIEngine::prepareRenderPasses() {
 
 bool VIEngine::generateGraphicsPipeline() {
     // Shader creation info for stage/pipeline definition (vertex) (phase 2)
+    // TODO move into shader and define a config file in order to tell "pName" if necessary
     VkPipelineShaderStageCreateInfo vertexShaderStageCreationInfo{
-            VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,    // sType
-            nullptr,                                                // pNext
-            0,                                                      // flags
-            VK_SHADER_STAGE_VERTEX_BIT,                             // stage
-            vertexModule,                                           // module
-            "main",                                                 // pName
-            nullptr                                                 // pSpecializationInfo
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = vertexModule,
+            .pName = "main",
+            .pSpecializationInfo = nullptr
     };
 
     // Shader creation info for stage/pipeline definition (fragment) (phase 6)
     VkPipelineShaderStageCreateInfo fragmentShaderStageCreationInfo{
-            VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,    // sType
-            nullptr,                                                // pNext
-            0,                                                      // flags
-            VK_SHADER_STAGE_FRAGMENT_BIT,                           // stage
-            fragmentModule,                                         // module
-            "main",                                                 // pName
-            nullptr                                                 // pSpecializationInfo
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = fragmentModule,
+            .pName = "main",
+            .pSpecializationInfo = nullptr
     };
 
     std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{
@@ -205,83 +224,69 @@ bool VIEngine::generateGraphicsPipeline() {
 
     ///< Shader creation info for rendering phase 0: vertex data handling
     VkPipelineVertexInputStateCreateInfo vertexShaderInputStageCreationInfo{
-            VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,  // sType
-            nullptr,                                                    // pNext
-            0,                                                          // flags
-            0,                                                          // vertexBindingDescriptionCount
-            nullptr,                                                    // pVertexBindingDescriptions
-            0,                                                          // vertexAttributeDescriptionCount
-            nullptr                                                     // pVertexAttributeDescriptions
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+            .vertexBindingDescriptionCount = 0,
+            .pVertexBindingDescriptions = nullptr,
+            .vertexAttributeDescriptionCount = 0,
+            .pVertexAttributeDescriptions = nullptr
     };
 
     ///< Shader creation info for rendering phase 1: input assembly
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreationInfo{
-            VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,    // sType
-            nullptr,                                                        // pNext
-            0,                                                              // flags
-            VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,                            // topology
-            VK_FALSE                                                        // primitiveRestartEnable
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+            .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            .primitiveRestartEnable = VK_FALSE
     };
 
     // Setting viewport size wrt framebuffers/swap chain
     VkViewport viewport{
-            0,                                              // x
-            0,                                              // y
-            static_cast<float>(chosenSwapExtent.width),     // width
-            static_cast<float>(chosenSwapExtent.height),    // height
-            0.0f,                                           // minDepth
-            1.0f                                            // maxDepth
+            .x = 0,
+            .y = 0,
+            .width = static_cast<float>(chosenSwapExtent.width),
+            .height = static_cast<float>(chosenSwapExtent.height),
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f
     };
 
-    VkRect2D scissorRectangle{
-            {0, 0},             // offset
-            chosenSwapExtent    // extent
-    };
+    VkRect2D scissorRectangle{.offset = {0, 0}, .extent = chosenSwapExtent};
 
     ///< Shader viewport creation info
     VkPipelineViewportStateCreateInfo viewportStateCreateInfo{
-            VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,  // sType
-            nullptr,                                                // pNext
-            0,                                                      // flags
-            1,                                                      // viewportCount
-            &viewport,                                              // pViewports
-            1,                                                      // scissorCount
-            &scissorRectangle                                       // pScissors
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+            .viewportCount = 1,
+            .pViewports = &viewport,
+            .scissorCount = 1,
+            .pScissors = &scissorRectangle
     };
-
 
     // TODO enable for shadow mapping, requires a GPU feature to check in function-like "enableShadowMapping" (maybe presets for each module and submodule)
     ///< Shader creation info for rendering phase 5: rasterization
     // TODO CW or CCW?
     VkPipelineRasterizationStateCreateInfo rasterizationCreationInfo{
-            VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO, // sType
-            nullptr,                                                    // pNext
-            0,                                                          // flags
-            VK_FALSE,                                                   // depthClampEnable
-            VK_FALSE,                                                   // rasterizerDiscardEnable
-            VK_POLYGON_MODE_FILL,                                       // polygonMode
-            VK_CULL_MODE_BACK_BIT,                                      // cullMode                 // FRONT for Shadow Mapping
-            VK_FRONT_FACE_CLOCKWISE,                                    // frontFace
-            VK_FALSE,                                                   // depthBiasEnable
-            0.0f,                                                       // depthBiasConstantFactor
-            0.0f,                                                       // depthBiasClamp
-            0.0f,                                                       // depthBiasSlopeFactor
-            1.0f                                                        // lineWidth
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+            .depthClampEnable = VK_FALSE,
+            .rasterizerDiscardEnable = VK_FALSE,
+            .polygonMode = VK_POLYGON_MODE_FILL,
+            .cullMode = VK_CULL_MODE_BACK_BIT,      // FRONT for Shadow Mapping
+            .frontFace = VK_FRONT_FACE_CLOCKWISE,
+            .depthBiasEnable = VK_FALSE,
+            .depthBiasConstantFactor = 0.0f,
+            .depthBiasClamp = 0.0f,
+            .depthBiasSlopeFactor = 0.0f,
+            .lineWidth = 1.0f
     };
 
     /*
     ///< Multisampling
     // TODO add MULTISAMPLING feature to device features (or check if available)
     VkPipelineMultisampleStateCreateInfo multisamplingCreationInfo{
-            VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,   // sType
-            nullptr,                                                    // pNext
-            0,                                                          // flags
-            VK_SAMPLE_COUNT_1_BIT,                                      // rasterizationSamples
-            VK_FALSE,                                                   // sampleShadingEnable
-            1.0f,                                                       // minSampleShading
-            nullptr,                                                    // pSampleMask
-            VK_FALSE,                                                   // alphaToCoverageEnable
-            VK_FALSE                                                    // alphaToOneEnable
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+            .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+            .sampleShadingEnable = VK_FALSE,
+            .minSampleShading = 1.0f,
+            .pSampleMask = nullptr,
+            .alphaToCoverageEnable = VK_FALSE,
+            .alphaToOneEnable = VK_FALSE
     };
 
     // TODO implement DEPTH STENCIL TEST
@@ -290,62 +295,55 @@ bool VIEngine::generateGraphicsPipeline() {
 
     // https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Fixed_functions
     VkPipelineColorBlendAttachmentState colorBlendAttachmentState{
-            VK_FALSE,                               // blendEnable
-            VK_BLEND_FACTOR_ONE,                    // srcColorBlendFactor
-            VK_BLEND_FACTOR_ZERO,                   // dstColorBlendFactor
-            VK_BLEND_OP_ADD,                        // colorBlendOp
-            VK_BLEND_FACTOR_ONE,                    // srcAlphaBlendFactor
-            VK_BLEND_FACTOR_ZERO,                   // dstAlphaBlendFactor
-            VK_BLEND_OP_ADD,                        // alphaBlendOp
-            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-            VK_COLOR_COMPONENT_A_BIT                // colorWriteMask
+            .blendEnable = VK_FALSE,
+            .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+            .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
+            .colorBlendOp = VK_BLEND_OP_ADD,
+            .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+            .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+            .alphaBlendOp = VK_BLEND_OP_ADD,
+            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
+                              VK_COLOR_COMPONENT_A_BIT
     };
 
     VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo{
-            VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,   // sType
-            nullptr,                                                    // pNext
-            0,                                                          // flags
-            VK_FALSE,                                                   // logicOpEnable
-            VK_LOGIC_OP_COPY,                                           // logicOp
-            1,                                                          // attachmentCount
-            &colorBlendAttachmentState,                                 // pAttachments
-            {0.0f, 0.0f, 0.0f, 0.0f}                                    // blendConstants[4]
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+            .logicOpEnable = VK_FALSE,
+            .logicOp = VK_LOGIC_OP_COPY,
+            .attachmentCount = 1,
+            .pAttachments = &colorBlendAttachmentState,
+            .blendConstants = {0.0f, 0.0f, 0.0f, 0.0f}
     };
 
     /*
     VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo{
-            VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,   // sType
-            nullptr,                                                // pNext
-            0,                                                      // flags
-            static_cast<uint32_t>(dynamicStates.size()),            // dynamicStateCount
-            dynamicStates.data()                                    // pDynamicStates
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+            .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+            .pDynamicStates = dynamicStates.data()
     };
      */
 
     // TODO https://vulkan-tutorial.com/en/Drawing_a_triangle/Graphics_pipeline_basics/Conclusion
     VkGraphicsPipelineCreateInfo pipelineCreateInfo{
-            VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,    // sType
-            nullptr,                                            // pNext
-            0,                                                  // flags
-            shaderStages.size(),                                // stageCount
-            shaderStages.data(),                                // pStages
-            &vertexShaderInputStageCreationInfo,                // pVertexInputState
-            &inputAssemblyCreationInfo,                         // pInputAssemblyState
-            nullptr,                                            // pTessellationState
-            &viewportStateCreateInfo,                           // pViewportState
-            &rasterizationCreationInfo,                         // pRasterizationState
-            nullptr,
-            //&multisamplingCreationInfo,                         // pMultisampleState
-            nullptr,                                            // pDepthStencilState
-            &colorBlendStateCreateInfo,                         // pColorBlendState
-            // TODO check why dynamicStateCreateInfo doesn't work (black screen)
-            nullptr,
-            //&dynamicStateCreateInfo,                            // pDynamicState
-            pipelineLayout,                                     // layout
-            renderPass,                                         // renderPass
-            0,                                                  // subpass
-            VK_NULL_HANDLE,                                     // basePipelineHandle
-            -1                                                  // basePipelineIndex
+            .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+            .stageCount = shaderStages.size(),
+            .pStages = shaderStages.data(),
+            .pVertexInputState = &vertexShaderInputStageCreationInfo,
+            .pInputAssemblyState = &inputAssemblyCreationInfo,
+            .pTessellationState = nullptr,
+            .pViewportState = &viewportStateCreateInfo,
+            .pRasterizationState = &rasterizationCreationInfo,
+            .pMultisampleState = nullptr,
+            // .pMultisampleState = &multisamplingCreationInfo,
+            .pDepthStencilState = nullptr,
+            .pColorBlendState = &colorBlendStateCreateInfo,
+            .pDynamicState = nullptr,   // TODO check why dynamicStateCreateInfo doesn't work (black screen)
+            //.pDynamicState = &dynamicStateCreateInfo,
+            .layout = pipelineLayout,
+            .renderPass = renderPass,
+            .subpass = 0,
+            .basePipelineHandle = VK_NULL_HANDLE,
+            .basePipelineIndex = -1
     };
 
     return_log_if(vkCreateGraphicsPipelines(vkDevice, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr,
@@ -361,20 +359,17 @@ bool VIEngine::initializeFramebuffers() {
 
     for (size_t i = 0; const VkImageView &attachment: swapChainImageViews) {
         VkFramebufferCreateInfo framebufferCreateInfo{
-                VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,  // sType
-                nullptr,                                    // pNext
-                0,                                          // flags
-                renderPass,                                 // renderPass
-                1,                                          // attachmentCount
-                &attachment,                                // pAttachments
-                chosenSwapExtent.width,                     // width
-                chosenSwapExtent.height,                    // height
-                1                                           // layers
+                .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+                .renderPass = renderPass,
+                .attachmentCount = 1,
+                .pAttachments = &attachment,
+                .width = chosenSwapExtent.width,
+                .height = chosenSwapExtent.height,
+                .layers = 1
         };
 
-        return_log_if(vkCreateFramebuffer(vkDevice, &framebufferCreateInfo, nullptr,
-                                          &swapChainFramebuffers.at(i)) != VK_SUCCESS,
-                      fmt::format("Cannot create framebuffer {}", i), false)
+        return_log_if(vkCreateFramebuffer(vkDevice, &framebufferCreateInfo, nullptr, &swapChainFramebuffers.at(i)) !=
+                      VK_SUCCESS, fmt::format("Cannot create framebuffer {}", i), false)
 
         ++i;
     }
@@ -386,11 +381,10 @@ bool VIEngine::prepareCommandBuffers() {
     commandBuffers.resize(swapChainFramebuffers.size());
 
     VkCommandBufferAllocateInfo commandBufferAllocateInfo{
-            VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,     // sType
-            nullptr,                                            // pNext
-            commandPool,                                        // commandPool
-            VK_COMMAND_BUFFER_LEVEL_PRIMARY,                    // level
-            static_cast<uint32_t>(commandBuffers.size())        // commandBufferCount
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = commandPool,
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = static_cast<uint32_t>(commandBuffers.size())
     };
 
     return_log_if(
@@ -401,10 +395,8 @@ bool VIEngine::prepareCommandBuffers() {
     //  maybe to split in separate function in order to implement one or more lambdas
     for (size_t i = 0; const VkCommandBuffer &buffer: commandBuffers) {
         VkCommandBufferBeginInfo commandBufferBeginInfo{
-                VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,    // sType
-                nullptr,                                        // pNext
-                0,                                              // flags
-                nullptr                                         // pInheritanceInfo
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+                .pInheritanceInfo = nullptr
         };
 
         return_log_if(vkBeginCommandBuffer(buffer, &commandBufferBeginInfo) != VK_SUCCESS,
@@ -412,13 +404,12 @@ bool VIEngine::prepareCommandBuffers() {
 
         VkClearValue clearColor{{{0.0f, 0.0f, 0.0f, 1.0f}}};
         VkRenderPassBeginInfo renderPassBeginInfo{
-                VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,   // sType
-                nullptr,                                    // pNext
-                renderPass,                                 // renderPass
-                swapChainFramebuffers.at(i),                // framebuffer
-                VkRect2D{{0, 0}, chosenSwapExtent},         // renderArea
-                1,                                          // clearValueCount
-                &clearColor                                 // pClearValues
+                .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+                .renderPass = renderPass,
+                .framebuffer = swapChainFramebuffers.at(i),
+                .renderArea = VkRect2D{{0, 0}, chosenSwapExtent},
+                .clearValueCount = 1,
+                .pClearValues = &clearColor
         };
 
         vkCmdBeginRenderPass(buffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -437,16 +428,27 @@ bool VIEngine::prepareCommandBuffers() {
 }
 
 bool VIEngine::recreateSwapchain() {
+    // TODO check if program should pause or not during minimizing (by flag?)
+    /*
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(glfwWindow, &width, &height);
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(glfwWindow, &width, &height);
+        glfwWaitEvents();
+    }
+     */
+
     vkDeviceWaitIdle(vkDevice);
 
+    cleanSwapchain();
 
-
-    return_log_if(!createSwapchains(), "Error createSwapchains()", false)
-    return_log_if(!createImageViews(), "Error createImageViews()", false)
-    return_log_if(!prepareRenderPasses(), "Error prepareRenderPasses()", false)
-    return_log_if(!generateGraphicsPipeline(), "Error generateGraphicsPipeline()", false)
-    return_log_if(!initializeFramebuffers(), "Error initializeFramebuffers()", false)
-    return_log_if(!prepareCommandBuffers(), "Error prepareCommandBuffers()", false)
+    return_log_if(!createSwapchains(), "(Re)Error createSwapchains()", false)
+    return_log_if(!createImageViews(), "(Re)Error createImageViews()", false)
+    return_log_if(!prepareFixedPipelineFunctions(), "(Re)Error prepareFixedPipelineFunctions()", false)
+    return_log_if(!prepareRenderPasses(), "(Re)Error prepareRenderPasses()", false)
+    return_log_if(!generateGraphicsPipeline(), "(Re)Error generateGraphicsPipeline()", false)
+    return_log_if(!initializeFramebuffers(), "(Re)Error initializeFramebuffers()", false)
+    return_log_if(!prepareCommandBuffers(), "(Re)Error prepareCommandBuffers()", false)
 
     return true;
 }
@@ -486,6 +488,13 @@ bool VIEngine::prepareEngine() {
         /* Calling glfeGetRequiredInstanceExtensions(pointer to uint32_t count) -> const char** */
         glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
+        // Setting up current engine pointer for callbacks
+        glfwSetWindowUserPointer(glfwWindow, this);
+
+        // Setting up window resize callback
+        // TODO understand why it doesn't work
+        glfwSetFramebufferSizeCallback(glfwWindow, framebufferResizeCallback);
+
         return true;
     });
 
@@ -494,13 +503,12 @@ bool VIEngine::prepareEngine() {
         // https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkApplicationInfo.html
         //TODO update to 1.3
         VkApplicationInfo applicationInfo{
-                VK_STRUCTURE_TYPE_APPLICATION_INFO,     // sType (VkStructureType)
-                nullptr,                                // pNext (pointer)
-                settings.kApplicationName.c_str(),      // pApplicationName
-                settings.kApplicationVersion,           // applicationVersion
-                "VulkanIndirectEngine",                 // pEngineName
-                settings.kEngineVersion,                // engineVersion
-                VK_API_VERSION_1_2                      // apiVersion
+                .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+                .pApplicationName = settings.kApplicationName.c_str(),
+                .applicationVersion = settings.kApplicationVersion,
+                .pEngineName = "VulkanIndirectEngine",
+                .engineVersion = settings.kEngineVersion,
+                .apiVersion = VK_API_VERSION_1_2
         };
 
         // Checking validation layers
@@ -524,14 +532,12 @@ bool VIEngine::prepareEngine() {
 
         // Creating Vulkan instance
         VkInstanceCreateInfo engineCreationInfo{
-                VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,                     // sType
-                nullptr,                                                    // pNext
-                0,                                                          // flags (VkFlags)
-                &applicationInfo,                                           // pApplicationInfo
-                static_cast<uint32_t>(settings.validationLayers.size()),    // enabledLayerCount
-                settings.validationLayers.data(),                           // ppEnabledLayerNames
-                glfwExtensionCount,                                         // enabledExtensionCount
-                glfwExtensions                                              // ppEnabledExtensionNames
+                .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+                .pApplicationInfo = &applicationInfo,
+                .enabledLayerCount = static_cast<uint32_t>(settings.validationLayers.size()),
+                .ppEnabledLayerNames = settings.validationLayers.data(),
+                .enabledExtensionCount = glfwExtensionCount,
+                .ppEnabledExtensionNames = glfwExtensions
         };
 
         // Calling vkCreateInstance(pointer to createInfo structure, pointer to custom memory allocator
@@ -545,11 +551,9 @@ bool VIEngine::prepareEngine() {
 #if _WIN64
         // Creating Vulkan surface based on WindowsNT native bindings
         VkWin32SurfaceCreateInfoKHR ntWindowSurfaceCreationInfo{
-                VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,    // sType
-                nullptr,                                            // pNext
-                0,                                                  // flags
-                GetModuleHandle(nullptr),                           // hinstance
-                glfwGetWin32Window(glfwWindow)                      // hwnd
+                .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+                .hinstance = GetModuleHandle(nullptr),
+                .hwnd = glfwGetWin32Window(glfwWindow)
         };
 
         return_log_if(
@@ -688,26 +692,22 @@ bool VIEngine::prepareEngine() {
     auto prepareLogicalDevice([this, &vkPhysicalDevice, &vkPhysicalDeviceFeatures, &mainQueueFamilyPriority]() {
         // Preparing command queue family for the main device
         VkDeviceQueueCreateInfo vkDeviceQueueCreateInfo{
-                VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,     // sType
-                nullptr,                                    // pNext
-                0,                                          // flags
-                selectedQueueFamily,                        // queueFamilyIndex
-                1,                                          // queueCount
-                &mainQueueFamilyPriority                    // pQueuePriorities
+                .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+                .queueFamilyIndex = selectedQueueFamily,
+                .queueCount = 1,
+                .pQueuePriorities = &mainQueueFamilyPriority
         };
 
         // Defining logical device creation, basing on queue priority, validation layers and physical device features
         VkDeviceCreateInfo vkDeviceCreateInfo{
-                VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,                       // sType
-                nullptr,                                                    // pNext
-                0,                                                          // flags
-                1,                                                          // queueCreateInfoCount
-                &vkDeviceQueueCreateInfo,                                   // pQueueCreateInfos
-                static_cast<uint32_t>(settings.validationLayers.size()),    // enabledLayerCount
-                settings.validationLayers.data(),                           // ppEnabledLayerNames
-                static_cast<uint32_t>(settings.deviceExtensions.size()),    // enabledExtensionCount
-                settings.deviceExtensions.data(),                           // ppEnabledExtensionNames
-                &vkPhysicalDeviceFeatures,                                  // pEnabledFeatures
+                .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+                .queueCreateInfoCount = 1,
+                .pQueueCreateInfos = &vkDeviceQueueCreateInfo,
+                .enabledLayerCount = static_cast<uint32_t>(settings.validationLayers.size()),
+                .ppEnabledLayerNames = settings.validationLayers.data(),
+                .enabledExtensionCount = static_cast<uint32_t>(settings.deviceExtensions.size()),
+                .ppEnabledExtensionNames = settings.deviceExtensions.data(),
+                .pEnabledFeatures = &vkPhysicalDeviceFeatures,
         };
 
         return_log_if(vkCreateDevice(vkPhysicalDevice, &vkDeviceCreateInfo, nullptr, &vkDevice) != VK_SUCCESS,
@@ -735,30 +735,10 @@ bool VIEngine::prepareEngine() {
         return true;
     });
 
-    auto prepareFixedPipelineFunctions([this]() {
-        VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
-                VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,          // sType
-                nullptr,                                                // pNext
-                0,                                                      // flags
-                0,                                                      // setLayoutCount
-                nullptr,                                                // pSetLayouts
-                0,                                                      // pushConstantRangeCount
-                nullptr                                                 // pPushConstantRanges
-        };
-
-        return_log_if(
-                vkCreatePipelineLayout(vkDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout) != VK_SUCCESS,
-                "Failed to create pipeline layout...", false)
-
-        return true;
-    });
-
     auto createCommandPool([this]() {
         VkCommandPoolCreateInfo commandPoolCreateInfo{
-                VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,                     // sType
-                nullptr,                                                        // pNext
-                0,                                                              // flags
-                selectedQueueFamily                                             // queueFamilyIndex
+                .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+                .queueFamilyIndex = selectedQueueFamily
         };
 
         return_log_if(vkCreateCommandPool(vkDevice, &commandPoolCreateInfo, nullptr, &commandPool) != VK_SUCCESS,
@@ -773,30 +753,22 @@ bool VIEngine::prepareEngine() {
         inFlightFences.resize(settings.kMaxFramesInFlight);
         imagesInFlight.resize(swapChainImages.size(), VK_NULL_HANDLE);
 
-        VkSemaphoreCreateInfo semaphoreCreateInfo{
-                VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,    // sType
-                nullptr,                                    // pNext
-                0                                           // flags
-        };
+        VkSemaphoreCreateInfo semaphoreCreateInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 
         VkFenceCreateInfo fenceCreateInfo{
-                VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,    // sType
-                nullptr,                                // pNext
-                VK_FENCE_CREATE_SIGNALED_BIT            // flags
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            .flags = VK_FENCE_CREATE_SIGNALED_BIT
         };
 
         for (uint8_t i = 0; i < settings.kMaxFramesInFlight; ++i) {
-            return_log_if(
-                    vkCreateSemaphore(vkDevice, &semaphoreCreateInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS,
-                    fmt::format("Cannot create image semaphore {}...", i), false)
+            return_log_if(vkCreateSemaphore(vkDevice, &semaphoreCreateInfo, nullptr, &imageAvailableSemaphores[i]) !=
+                          VK_SUCCESS, fmt::format("Cannot create image semaphore {}...", i), false)
 
-            return_log_if(
-                    vkCreateSemaphore(vkDevice, &semaphoreCreateInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS,
-                    fmt::format("Cannot create render semaphore {}...", i), false)
+            return_log_if(vkCreateSemaphore(vkDevice, &semaphoreCreateInfo, nullptr, &renderFinishedSemaphores[i]) !=
+                          VK_SUCCESS, fmt::format("Cannot create render semaphore {}...", i), false)
 
-            return_log_if(
-                    vkCreateFence(vkDevice, &fenceCreateInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS,
-                    fmt::format("Cannot create fence {}...", i), false)
+            return_log_if(vkCreateFence(vkDevice, &fenceCreateInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS,
+                          fmt::format("Cannot create fence {}...", i), false)
         }
 
         return true;
@@ -861,19 +833,28 @@ void VIEngine::runEngine() {
     while (!glfwWindowShouldClose(glfwWindow)) {
         glfwPollEvents();
 
-        drawFrame();
+        if (!drawFrame()) {
+            std::cout << "Error drawing frame..." << std::endl;
+        }
     }
 
     vkDeviceWaitIdle(vkDevice);
 }
 
 bool VIEngine::drawFrame() {
-    uint32_t imageIndex;
+    uint32_t imageIndex = 0;
 
     vkWaitForFences(vkDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
-    vkAcquireNextImageKHR(vkDevice, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE,
-                          &imageIndex);
+    if (VkResult result{vkAcquireNextImageKHR(vkDevice, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame],
+                                              VK_NULL_HANDLE, &imageIndex)};
+            result == VK_ERROR_OUT_OF_DATE_KHR) {
+        recreateSwapchain();
+        return true;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        std::cout << "Error acquiring next VkImage..." << std::endl;
+        return false;
+    }
 
     if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
         vkWaitForFences(vkDevice, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
@@ -883,32 +864,36 @@ bool VIEngine::drawFrame() {
     // TODO move as constant
     std::array<VkPipelineStageFlags, 1> waitStages{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSubmitInfo submitInfo{
-            VK_STRUCTURE_TYPE_SUBMIT_INFO,              // sType
-            nullptr,                                    // pNext
-            1,                                          // waitSemaphoreCount
-            &imageAvailableSemaphores[currentFrame],    // pWaitSemaphores
-            waitStages.data(),                          // pWaitDstStageMask
-            1,                                          // commandBufferCount
-            &commandBuffers.at(imageIndex),             // pCommandBuffers
-            1,                                          // signalSemaphoreCount
-            &renderFinishedSemaphores[currentFrame],    // pSignalSemaphores
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &imageAvailableSemaphores[currentFrame],
+            .pWaitDstStageMask = waitStages.data(),
+            .commandBufferCount = 1,
+            .pCommandBuffers = &commandBuffers.at(imageIndex),
+            .signalSemaphoreCount = 1,
+            .pSignalSemaphores = &renderFinishedSemaphores[currentFrame],
     };
 
     vkResetFences(vkDevice, 1, &inFlightFences[currentFrame]);
 
-    return_log_if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS,
-                  "Cannot submit draw command buffer...", false)
+    if (VkResult result{vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame])};
+            result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || isFramebufferResized) {
+        isFramebufferResized = false;
+        recreateSwapchain();
+    } else if (result != VK_SUCCESS) {
+        std::cout << "Cannot submit draw command buffer..." << std::endl;
+        return false;
+    }
 
     std::array<VkSwapchainKHR, 1> swapChainsKHR{swapChain};
     VkPresentInfoKHR presentInfo{
-            VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,         // sType
-            nullptr,                                    // pNext
-            1,                                          // waitSemaphoreCount
-            &renderFinishedSemaphores[currentFrame],    // pWaitSemaphores
-            swapChainsKHR.size(),                       // swapchainCount
-            swapChainsKHR.data(),                       // pSwapchains
-            &imageIndex,                                // pImageIndices
-            nullptr                                     // pResults
+            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &renderFinishedSemaphores[currentFrame],
+            .swapchainCount = swapChainsKHR.size(),
+            .pSwapchains = swapChainsKHR.data(),
+            .pImageIndices = &imageIndex,
+            .pResults = nullptr
     };
 
     vkQueuePresentKHR(presentQueue, &presentInfo);

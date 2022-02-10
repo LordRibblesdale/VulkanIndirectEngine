@@ -59,6 +59,7 @@ class VIEngine {
     // TODO check which of these elements could be freed from memory after prepareEngine
     // GLFW
     GLFWwindow *glfwWindow{};           ///< GLFW window pointer
+    bool isFramebufferResized{false};   ///<
 
     // Vulkan instance
     VkInstance vkInstance{};            ///< Vulkan runtime instance
@@ -107,17 +108,19 @@ class VIEngine {
     std::vector<VkSemaphore> renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> imagesInFlight;
-    uint8_t currentFrame;
+    uint8_t currentFrame{0};
 
     // Vulkan graphics queue
     VkQueue graphicsQueue{};                                ///< Main rendering queue
     VkQueue presentQueue{};                                 ///< Main frame representation queue
 
+    static void framebufferResizeCallback(GLFWwindow *window, int width, int height);
 
     bool drawFrame();
 
     bool createSwapchains();
     bool createImageViews();
+    bool prepareFixedPipelineFunctions();
     bool prepareRenderPasses();
     bool generateGraphicsPipeline();
     bool initializeFramebuffers();
