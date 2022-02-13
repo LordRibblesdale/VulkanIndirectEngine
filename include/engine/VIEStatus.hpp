@@ -19,16 +19,17 @@ enum class VIEStatus : uint8_t {
     VULKAN_PHYSICAL_DEVICES_PREPARED    = 15,   ///< Vulkan physical device chosen state
     VULKAN_LOGICAL_DEVICE_CREATED       = 16,   ///< Vulkan logic device created state
     VULKAN_SWAP_CHAIN_CREATED           = 17,   ///< Vulkan device swap chain created state
-    VULKAN_IMAGE_VIEWS_CREATED          = 18,   ///< Vulkan image views created state
-    VULKAN_SHADERS_COMPILED             = 19,   ///< Vulkan graphics pipeline generated state
-    VULKAN_PIPELINE_STATES_PREPARED     = 20,   ///<
-    VULKAN_RENDER_PASSES_GENERATED      = 21,   ///<
-    VULKAN_GRAPHICS_PIPELINE_GENERATED  = 22,   ///<
-    VULKAN_FRAMEBUFFERS_CREATED         = 23,   ///<
-    VULKAN_COMMAND_POOL_CREATED         = 24,   ///<
+    VULKAN_SHADERS_COMPILED             = 18,   ///< Vulkan graphics pipeline generated state
+    VULKAN_COMMAND_POOL_CREATED         = 19,   ///<
+    VULKAN_IMAGE_VIEWS_CREATED          = 20,   ///< Vulkan image views created state
+    VULKAN_PIPELINE_STATES_PREPARED     = 21,   ///<
+    VULKAN_RENDER_PASSES_GENERATED      = 22,   ///<
+    VULKAN_GRAPHICS_PIPELINE_GENERATED  = 23,   ///<
+    VULKAN_FRAMEBUFFERS_CREATED         = 24,   ///<
     VULKAN_COMMAND_BUFFERS_PREPARED     = 25,   ///<
-    VULKAN_SEMAPHORES_CREATED           = 26,   ///<
-    VULKAN_ENGINE_RUNNING               = 27,   ///<
+    VULKAN_RENDERER_CORE_INIT           = 26,   ///<
+    VULKAN_SEMAPHORES_CREATED           = 27,   ///<
+    VULKAN_ENGINE_RUNNING               = 28,   ///<
 };
 
 // inline std::string fromVIEStatusToString(VIEStatus status) {
@@ -54,6 +55,8 @@ inline std::ostream& operator<<(std::ostream& ostream, VIEStatus status) {
             return ostream << "VULKAN_IMAGE_VIEWS_CREATED";
         case VIEStatus::VULKAN_SHADERS_COMPILED:
             return ostream << "VULKAN_SHADERS_COMPILED";
+        case VIEStatus::VULKAN_RENDERER_CORE_INIT:
+            return ostream << "VULKAN_RENDERER_CORE_INIT";
         default:
             return ostream << "[ERROR: VIEStatus not recognised]";
     }

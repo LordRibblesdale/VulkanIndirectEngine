@@ -85,7 +85,7 @@ class VIEngine {
     VkSurfaceCapabilitiesKHR surfaceCapabilities{};             ///< Window surface capabilities for swap chain implementation
     std::vector<VkImage> swapChainImages{};                     ///< Swap chain extracted images
     std::vector<VkImageView> swapChainImageViews{};             ///< Swap chain extracted image viewers
-    VkSwapchainKHR swapChain{};                                  ///< Swap chain system for framebuffers queue management
+    VkSwapchainKHR swapChain{};                                 ///< Swap chain system for framebuffers queue management
 
     // Vulkan rendering pipeline
     std::unique_ptr<VIEUberShader> uberShader;
@@ -118,15 +118,8 @@ class VIEngine {
 
     bool drawFrame();
 
-    bool createSwapchains();
-    bool createImageViews();
-    bool prepareFixedPipelineFunctions();
-    bool prepareRenderPasses();
-    bool generateGraphicsPipeline();
-    bool initializeFramebuffers();
-    bool prepareCommandBuffers();
-
-    bool recreateSwapchain();
+    bool generateRendererCore();
+    bool regenerateRendererCore();
 
     void cleanSwapchain();
 

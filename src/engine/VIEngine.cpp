@@ -2,15 +2,10 @@
  * MIT License
  */
 
+#include <ranges>
 #include "engine/VIEngine.hpp"
 #include "engine/VIESettings.hpp"
-
-// TODO fix with logger
-#define return_log_if(if_condition, string, ret_condition)  \
-if(if_condition) {                                          \
-    std::cout << (string) << std::endl;                     \
-    return ret_condition;                                   \
-}
+#include "tools/VIETools.hpp"
 
 VIEngine::VIEngine(const VIESettings &settings) : settings(settings) {}
 
@@ -25,7 +20,8 @@ void VIEngine::framebufferResizeCallback(GLFWwindow *window, int width, int heig
     engine->isFramebufferResized = true;
 }
 
-bool VIEngine::createSwapchains() {
+bool VIEngine::generateRendererCore() {
+    /// -- Swap chain --
     // Selecting surface format (channels and color space)
     return_log_if(!tools::selectSurfaceFormat(surfaceAvailableFormats, settings.defaultFormat,
                                               settings.defaultColorSpace, chosenSurfaceFormat),
@@ -95,14 +91,11 @@ bool VIEngine::createSwapchains() {
     return_log_if(vkCreateSwapchainKHR(vkDevice, &swapChainCreationInfo, nullptr, &swapChain),
                   "Cannot create swap chain for main device!", false)
 
-    vkGetSwapchainImagesKHR(vkDevice, swapChain, &swapChainImagesCount, nullptr);
-    swapChainImages.resize(swapChainImagesCount);
-    vkGetSwapchainImagesKHR(vkDevice, swapChain, &swapChainImagesCount, swapChainImages.data());
+    tools::gatherVkData(vkGetSwapchainImagesKHR, swapChainImages, swapChainImagesCount, vkDevice, swapChain);
 
-    return true;
-}
+    engineStatus = VIEStatus::VULKAN_SWAP_CHAIN_CREATED;
 
-bool VIEngine::createImageViews() {
+    /// -- Image views --
     swapChainImageViews.resize(swapChainImages.size());
 
     for (size_t i = 0; VkImageView &imageView: swapChainImageViews) {
@@ -122,10 +115,9 @@ bool VIEngine::createImageViews() {
         ++i;
     }
 
-    return true;
-}
+    engineStatus = VIEStatus::VULKAN_IMAGE_VIEWS_CREATED;
 
-bool VIEngine::prepareFixedPipelineFunctions() {
+    /// -- Pipeline functions --
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = 0,
@@ -138,10 +130,9 @@ bool VIEngine::prepareFixedPipelineFunctions() {
             vkCreatePipelineLayout(vkDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout) != VK_SUCCESS,
             "Failed to create pipeline layout...", false)
 
-    return true;
-}
+    engineStatus = VIEStatus::VULKAN_PIPELINE_STATES_PREPARED;
 
-bool VIEngine::prepareRenderPasses() {
+    /// -- Render passes --
     VkAttachmentDescription colorAttachment{
             .format = chosenSurfaceFormat.format,
             .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -194,10 +185,9 @@ bool VIEngine::prepareRenderPasses() {
     return_log_if(vkCreateRenderPass(vkDevice, &renderPassCreateInfo, nullptr, &renderPass) != VK_SUCCESS,
                   "Failed to create render pass...", false)
 
-    return true;
-}
+    engineStatus = VIEStatus::VULKAN_RENDER_PASSES_GENERATED;
 
-bool VIEngine::generateGraphicsPipeline() {
+    /// -- Graphics pipeline --
     // Shader creation info for stage/pipeline definition (vertex) (phase 2)
     // TODO move into shader and define a config file in order to tell "pName" if necessary
     VkPipelineShaderStageCreateInfo vertexShaderStageCreationInfo{
@@ -222,7 +212,7 @@ bool VIEngine::generateGraphicsPipeline() {
             fragmentShaderStageCreationInfo
     };
 
-    ///< Shader creation info for rendering phase 0: vertex data handling
+    // Shader creation info for rendering phase 0: vertex data handling
     VkPipelineVertexInputStateCreateInfo vertexShaderInputStageCreationInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
             .vertexBindingDescriptionCount = 0,
@@ -231,7 +221,7 @@ bool VIEngine::generateGraphicsPipeline() {
             .pVertexAttributeDescriptions = nullptr
     };
 
-    ///< Shader creation info for rendering phase 1: input assembly
+    // Shader creation info for rendering phase 1: input assembly
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreationInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
             .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
@@ -250,7 +240,7 @@ bool VIEngine::generateGraphicsPipeline() {
 
     VkRect2D scissorRectangle{.offset = {0, 0}, .extent = chosenSwapExtent};
 
-    ///< Shader viewport creation info
+    // Shader viewport creation info
     VkPipelineViewportStateCreateInfo viewportStateCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
             .viewportCount = 1,
@@ -260,7 +250,7 @@ bool VIEngine::generateGraphicsPipeline() {
     };
 
     // TODO enable for shadow mapping, requires a GPU feature to check in function-like "enableShadowMapping" (maybe presets for each module and submodule)
-    ///< Shader creation info for rendering phase 5: rasterization
+    // Shader creation info for rendering phase 5: rasterization
     // TODO CW or CCW?
     VkPipelineRasterizationStateCreateInfo rasterizationCreationInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
@@ -277,7 +267,7 @@ bool VIEngine::generateGraphicsPipeline() {
     };
 
     /*
-    ///< Multisampling
+    // Multisampling
     // TODO add MULTISAMPLING feature to device features (or check if available)
     VkPipelineMultisampleStateCreateInfo multisamplingCreationInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
@@ -350,10 +340,9 @@ bool VIEngine::generateGraphicsPipeline() {
                                             &graphicsPipeline) != VK_SUCCESS,
                   "Failed to create graphics pipeline...", false)
 
-    return true;
-}
+    engineStatus = VIEStatus::VULKAN_GRAPHICS_PIPELINE_GENERATED;
 
-bool VIEngine::initializeFramebuffers() {
+    /// -- Framebuffers --
     // Framebuffers linked to swap chains and image views
     swapChainFramebuffers.resize(swapChainImageViews.size());
 
@@ -374,10 +363,9 @@ bool VIEngine::initializeFramebuffers() {
         ++i;
     }
 
-    return true;
-}
+    engineStatus = VIEStatus::VULKAN_FRAMEBUFFERS_CREATED;
 
-bool VIEngine::prepareCommandBuffers() {
+    /// -- Command buffers --
     commandBuffers.resize(swapChainFramebuffers.size());
 
     VkCommandBufferAllocateInfo commandBufferAllocateInfo{
@@ -390,6 +378,8 @@ bool VIEngine::prepareCommandBuffers() {
     return_log_if(
             vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, commandBuffers.data()) != VK_SUCCESS,
             "Cannot create command buffers...", false)
+
+    engineStatus = VIEStatus::VULKAN_COMMAND_BUFFERS_PREPARED;
 
     // TODO integrate custom render pass and draw commands so that others could implement their shaders and related commands
     //  maybe to split in separate function in order to implement one or more lambdas
@@ -424,10 +414,12 @@ bool VIEngine::prepareCommandBuffers() {
         ++i;
     }
 
+    engineStatus = VIEStatus::VULKAN_COMMAND_POOL_CREATED;
+
     return true;
 }
 
-bool VIEngine::recreateSwapchain() {
+bool VIEngine::regenerateRendererCore() {
     // TODO check if program should pause or not during minimizing (by flag?)
     /*
     int width = 0, height = 0;
@@ -437,18 +429,15 @@ bool VIEngine::recreateSwapchain() {
         glfwWaitEvents();
     }
      */
+    if (engineStatus < VIEStatus::VULKAN_ENGINE_RUNNING) {
+        return true;
+    }
 
     vkDeviceWaitIdle(vkDevice);
 
     cleanSwapchain();
 
-    return_log_if(!createSwapchains(), "(Re)Error createSwapchains()", false)
-    return_log_if(!createImageViews(), "(Re)Error createImageViews()", false)
-    return_log_if(!prepareFixedPipelineFunctions(), "(Re)Error prepareFixedPipelineFunctions()", false)
-    return_log_if(!prepareRenderPasses(), "(Re)Error prepareRenderPasses()", false)
-    return_log_if(!generateGraphicsPipeline(), "(Re)Error generateGraphicsPipeline()", false)
-    return_log_if(!initializeFramebuffers(), "(Re)Error initializeFramebuffers()", false)
-    return_log_if(!prepareCommandBuffers(), "(Re)Error prepareCommandBuffers()", false)
+    return_log_if(!generateRendererCore(), "(Re)Error generating renderer core", false)
 
     return true;
 }
@@ -485,7 +474,7 @@ bool VIEngine::prepareEngine() {
         return_log_if(!glfwWindow, "GLFW window not initialised...", false)
 
         // Getting extensions from GLFW for Vulkan implementation
-        /* Calling glfeGetRequiredInstanceExtensions(pointer to uint32_t count) -> const char** */
+        /* Calling glfwGetRequiredInstanceExtensions(pointer to uint32_t count) -> const char** */
         glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
         // Setting up current engine pointer for callbacks
@@ -513,12 +502,8 @@ bool VIEngine::prepareEngine() {
 
         // Checking validation layers
         uint32_t layerCount;
-        // Gathering number of layers
-        vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-        // Gathering layers knowing their count
-        std::vector<VkLayerProperties> availableLayers(layerCount);
-        vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+        std::vector<VkLayerProperties> availableLayers;
+        tools::gatherVkData(vkEnumerateInstanceLayerProperties, availableLayers, layerCount);
 
         // Removing the one that are not compatible
         std::erase_if(settings.validationLayers, [&availableLayers](std::string_view layer) {
@@ -528,8 +513,6 @@ bool VIEngine::prepareEngine() {
         });
 
         // TODO implement additional debug
-        // https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkInstanceCreateInfo.html
-
         // Creating Vulkan instance
         VkInstanceCreateInfo engineCreationInfo{
                 .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -556,15 +539,13 @@ bool VIEngine::prepareEngine() {
                 .hwnd = glfwGetWin32Window(glfwWindow)
         };
 
-        return_log_if(
-                vkCreateWin32SurfaceKHR(vkInstance, &ntWindowSurfaceCreationInfo, nullptr, &surface) != VK_SUCCESS,
-                "Cannot create native NT window surface to bind to Vulkan...", false)
+        return_log_if(vkCreateWin32SurfaceKHR(vkInstance, &ntWindowSurfaceCreationInfo, nullptr, &surface) !=
+                      VK_SUCCESS, "Cannot create native NT window surface to bind to Vulkan...", false)
 #elif __linux__
         // Creating Vulkan surface based on Wayland native bindings
-        // TODO see if in Windows this creation type is compatible
-        if (glfwCreateWindowSurface(mVulkanLibraries.vkInstance, mNativeWindow.glfwWindow, nullptr, &mSurface.surface)) {
-            throw VIERunException("Error creating surface in Wayland environment...", VIESettings::engineStatus);
-        }
+        return_log_if(glfwCreateWindowSurface(mVulkanLibraries.vkInstance, mNativeWindow.glfwWindow, nullptr,
+                                              &mSurface.surface), "Error creating surface in Wayland environment...",
+                      false);
 #endif
 
         return true;
@@ -573,13 +554,10 @@ bool VIEngine::prepareEngine() {
     auto preparePhysicalDevice([this, &vkPhysicalDevice]() {
         // Looking for devices
         uint32_t devicesCount = 0;
-        vkEnumeratePhysicalDevices(vkInstance, &devicesCount, nullptr);
+        std::vector<VkPhysicalDevice> availableDevices;
+        tools::gatherVkData(vkEnumeratePhysicalDevices, availableDevices, devicesCount, vkInstance);
 
         return_log_if(devicesCount == 0, "No physical devices found for Vulkan rendering...", false)
-
-        // Gathering devices info
-        std::vector<VkPhysicalDevice> availableDevices(devicesCount);
-        vkEnumeratePhysicalDevices(vkInstance, &devicesCount, availableDevices.data());
 
         // Erasing from list devices that are not considered valid ones (if isPreferrableDevice is
         if (settings.isPreferrableDevice) {
@@ -588,101 +566,16 @@ bool VIEngine::prepareEngine() {
             });
         }
 
-        // Boolean for checking if a device has been found
-        bool isDeviceSet = false;
-
         // Selecting and sorting devices
         // For one device, the selection is at the beginning of availableDevices vector
-        for (VkPhysicalDevice &device: availableDevices) {
-            // TODO improve
-            uint32_t mainDeviceSelectedQueueFamily = kUint32Max;
-            uint32_t mainDeviceSelectedPresentFamily = kUint32Max;
-
-            // Getting number of supported extensions
-            uint32_t extensionCount;
-            vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-
-            // Getting supported extensions
-            std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-            vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
-
-            // Checking that all requested device extensions are compatible with the selected vkDevice
-            bool isDeviceCompatibleWithExtensions =
-                    std::ranges::all_of(settings.deviceExtensions,
-                                        [&availableExtensions](std::string_view extension) {
-                                            return std::ranges::any_of(
-                                                    availableExtensions,
-                                                    [&extension](const VkExtensionProperties &extensionProperties) {
-                                                        return extension == extensionProperties.extensionName;
-                                                    });
-                                        });
-
-            // Getting number of supported queue families (subset of compatible queues with the physical device)
-            uint32_t queueFamilyCount = 0;
-            vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-            // Getting supported queue families
-            std::vector<VkQueueFamilyProperties> deviceQueueFamilies(queueFamilyCount);
-            vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, deviceQueueFamilies.data());
-
-            // Checking if there is the interested queue family with requested flags and with selectedSurface support
-            bool isDeviceCompatibleWithQueueFamily = false;
-            for (uint32_t selectedIndex = 0; const VkQueueFamilyProperties &queueFamilyProperty: deviceQueueFamilies) {
-                auto flagsContainsFunction([&queueFamilyProperty](const VkQueueFlagBits &flagBits) {
-                    return queueFamilyProperty.queueFlags & flagBits;
-                });
-
-                if (std::ranges::all_of(settings.defaultFlags, flagsContainsFunction) &&
-                    std::ranges::all_of(settings.preferredFlagBits, flagsContainsFunction)) {
-                    // If compatible, queue subset family index is saved
-                    mainDeviceSelectedQueueFamily = selectedIndex;
-                }
-
-                VkBool32 isSurfaceSupported = false;
-                vkGetPhysicalDeviceSurfaceSupportKHR(device, selectedIndex, surface, &isSurfaceSupported);
-
-                if (isSurfaceSupported) {
-                    // If queue subset index is also compatible with current surface, its index is saved
-                    mainDeviceSelectedPresentFamily = selectedIndex;
-                }
-
-                if ((mainDeviceSelectedQueueFamily != kUint32Max) && (mainDeviceSelectedPresentFamily != kUint32Max)) {
-                    isDeviceCompatibleWithQueueFamily = true;
-                    break;
-                }
-
-                ++selectedIndex;
-            }
-
-            // Gathering the number of supported surface formats
-            uint32_t formatCount;
-            uint32_t presentModeCount;
-            vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
-            vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
-
-            bool isSurfaceSwapChainBasicSupportAvailable = (formatCount != 0) && (presentModeCount != 0);
-
-            if (isDeviceCompatibleWithExtensions && isDeviceCompatibleWithQueueFamily &&
-                isSurfaceSwapChainBasicSupportAvailable) {
-                vkPhysicalDevice = device;
-                // Selecting queue graphic
-                selectedQueueFamily = mainDeviceSelectedQueueFamily;
-                selectedPresentFamily = mainDeviceSelectedPresentFamily;
-
-                // Obtaining all capabilities of a surface, depending on the linked device
-                vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &surfaceCapabilities);
-
-                // Obtaining formats and present modes compatible with selected surface
-                surfaceAvailableFormats.resize(formatCount);
-                vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, surfaceAvailableFormats.data());
-                surfacePresentationModes.resize(presentModeCount);
-                vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount,
-                                                          surfacePresentationModes.data());
-
-                isDeviceSet = true;
-                break;
-            }
-        }
+        bool isDeviceSet = (std::ranges::any_of(
+                availableDevices,
+                [this, &vkPhysicalDevice](const VkPhysicalDevice &physicalDevice) {
+                    return tools::selectPhysicalDevice(physicalDevice, vkPhysicalDevice, selectedQueueFamily,
+                                                       selectedPresentFamily, surface, surfaceCapabilities,
+                                                       surfaceAvailableFormats, surfacePresentationModes,
+                                                       settings);
+                }));
 
         return_log_if(!isDeviceSet, "Error looking for physical device...", false)
 
@@ -789,32 +682,14 @@ bool VIEngine::prepareEngine() {
     return_log_if(!prepareLogicalDevice(), "Error prepareLogicalDevice()", false)
     engineStatus = VIEStatus::VULKAN_LOGICAL_DEVICE_CREATED;
 
-    return_log_if(!createSwapchains(), "Error createSwapchains()", false)
-    engineStatus = VIEStatus::VULKAN_SWAP_CHAIN_CREATED;
-
-    return_log_if(!createImageViews(), "Error createImageViews()", false)
-    engineStatus = VIEStatus::VULKAN_IMAGE_VIEWS_CREATED;
-
     return_log_if(!generateShaderModules(), "Error generateShaderModules()", false)
     engineStatus = VIEStatus::VULKAN_SHADERS_COMPILED;
-
-    return_log_if(!prepareFixedPipelineFunctions(), "Error prepareFixedPipelineFunctions()", false)
-    engineStatus = VIEStatus::VULKAN_PIPELINE_STATES_PREPARED;
-
-    return_log_if(!prepareRenderPasses(), "Error prepareRenderPasses()", false)
-    engineStatus = VIEStatus::VULKAN_RENDER_PASSES_GENERATED;
-
-    return_log_if(!generateGraphicsPipeline(), "Error generateGraphicsPipeline()", false)
-    engineStatus = VIEStatus::VULKAN_GRAPHICS_PIPELINE_GENERATED;
-
-    return_log_if(!initializeFramebuffers(), "Error initializeFramebuffers()", false)
-    engineStatus = VIEStatus::VULKAN_FRAMEBUFFERS_CREATED;
 
     return_log_if(!createCommandPool(), "Error createCommandPool()", false)
     engineStatus = VIEStatus::VULKAN_COMMAND_POOL_CREATED;
 
-    return_log_if(!prepareCommandBuffers(), "Error prepareCommandBuffers()", false)
-    engineStatus = VIEStatus::VULKAN_COMMAND_BUFFERS_PREPARED;
+    return_log_if(!generateRendererCore(), "Error generateRendererCore()", false)
+    engineStatus = VIEStatus::VULKAN_RENDERER_CORE_INIT;
 
     return_log_if(!createSemaphores(), "Error createSemaphores()", false)
     engineStatus = VIEStatus::VULKAN_SEMAPHORES_CREATED;
@@ -841,15 +716,17 @@ void VIEngine::runEngine() {
     vkDeviceWaitIdle(vkDevice);
 }
 
+// TODO make generic also for VR!!
 bool VIEngine::drawFrame() {
     uint32_t imageIndex = 0;
 
     vkWaitForFences(vkDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
+    // TODO For framerate limiter https://vkguide.dev/docs/chapter-1/vulkan_mainloop_code/
     if (VkResult result{vkAcquireNextImageKHR(vkDevice, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame],
                                               VK_NULL_HANDLE, &imageIndex)};
             result == VK_ERROR_OUT_OF_DATE_KHR) {
-        recreateSwapchain();
+        regenerateRendererCore();
         return true;
     } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         std::cout << "Error acquiring next VkImage..." << std::endl;
@@ -879,7 +756,7 @@ bool VIEngine::drawFrame() {
     if (VkResult result{vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame])};
             result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || isFramebufferResized) {
         isFramebufferResized = false;
-        recreateSwapchain();
+        regenerateRendererCore();
     } else if (result != VK_SUCCESS) {
         std::cout << "Cannot submit draw command buffer..." << std::endl;
         return false;

@@ -9,47 +9,47 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <limits>
+#include "engine/VIESettings.hpp"
 
-inline constexpr auto kUint32Max{std::numeric_limits<uint32_t>::max()};
-
-namespace logger {
-    class Logger {
-
-    };
+// TODO fix with logger
+#define return_log_if(if_condition, string, ret_condition)  \
+if (if_condition) {                                         \
+    std::cout << (string) << std::endl;                     \
+    return ret_condition;                                   \
 }
 
+#define break_if(if_condition)  \
+if (if_condition) {             \
+    break;                      \
+}
+
+#define skip_if(if_condition)   \
+if (if_condition) {             \
+    continue;                   \
+}
+
+constexpr auto kUint32Max{std::numeric_limits<uint32_t>::max()};
+
 namespace tools {
-    inline bool selectSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableSurfaceFormats,
-                                           const VkFormat &requiredFormat, const VkColorSpaceKHR &requiredColorSpace,
-                                           VkSurfaceFormatKHR &returnSurfaceFormat) {
-        if (availableSurfaceFormats.empty()) {
-            return false;
-        }
-
-        auto foundSurfaceFormat(std::ranges::any_of(
-                availableSurfaceFormats,
-                [&requiredFormat, &requiredColorSpace](const VkSurfaceFormatKHR &surfaceFormat) {
-                    return surfaceFormat.format == requiredFormat && surfaceFormat.colorSpace == requiredColorSpace;
-                }));
-
-        returnSurfaceFormat = foundSurfaceFormat ? VkSurfaceFormatKHR{requiredFormat, requiredColorSpace}
-                                                 : availableSurfaceFormats.at(0);
-
-        return true;
+    template <typename VkFunc, typename Vector, typename... Args>
+    inline void gatherVkData(VkFunc &vkCall, Vector &v, uint32_t &count, Args &&...requiredArgs) {
+        vkCall(requiredArgs..., &count, nullptr);
+        v.resize(count);
+        vkCall(requiredArgs..., &count, v.data());
     }
 
-    inline VkPresentModeKHR selectSurfacePresentation(const std::vector<VkPresentModeKHR> &availablePresentationModes,
-                                               const VkPresentModeKHR &requiredPresentationMode) {
-        if (availablePresentationModes.empty()) {
-            return VK_PRESENT_MODE_FIFO_KHR;
-        }
+    bool selectSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableSurfaceFormats,
+                             const VkFormat &requiredFormat, const VkColorSpaceKHR &requiredColorSpace,
+                             VkSurfaceFormatKHR &returnSurfaceFormat);
 
-        auto foundPresentationMode(std::ranges::any_of(
-                availablePresentationModes,
-                [&requiredPresentationMode](const VkPresentModeKHR &presentModeKhr) {
-                    return presentModeKhr == requiredPresentationMode;
-                }));
+    VkPresentModeKHR selectSurfacePresentation(const std::vector<VkPresentModeKHR> &availablePresentationModes,
+                                               const VkPresentModeKHR &requiredPresentationMode);
 
-        return foundPresentationMode ? requiredPresentationMode : VK_PRESENT_MODE_FIFO_KHR;
-    }
+    bool selectPhysicalDevice(const VkPhysicalDevice &deviceToCheck, VkPhysicalDevice &compatibleDevice,
+                              uint32_t &selectedQueueFamily, uint32_t &selectedPresentFamily,
+                              const VkSurfaceKHR &surface, VkSurfaceCapabilitiesKHR &surfaceCapabilities,
+                              std::vector<VkSurfaceFormatKHR> &formats,
+                              std::vector<VkPresentModeKHR> &presentationModes,
+                              const VIESettings &settings);
 }
