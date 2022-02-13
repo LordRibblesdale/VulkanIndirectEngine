@@ -443,10 +443,7 @@ bool VIEngine::regenerateRendererCore() {
 }
 
 bool VIEngine::prepareEngine() {
-    // TODO condensate into internal structures
-    uint32_t glfwExtensionCount{};         ///< GLFW extensions count for Vulkan ext. initialisation
-    const char **glfwExtensions{};         /**< GLFW extensions (GLFW APIs and functions) to be used by
-                                            *    Vulkan for interacting with window */
+    std::vector<const char*> vGlfwExtensions;    ///< GLFW extensions count for Vulkan ext. initialisation
 
     VkPhysicalDevice vkPhysicalDevice{};                    /**< Vulkan physical device object (for used device
                                                              *    representation) */
@@ -456,7 +453,7 @@ bool VIEngine::prepareEngine() {
 
     // GLFW initialization lambda
     // https://www.glfw.org/docs/3.3/group__init.html
-    auto initializeGlfw([this, &glfwExtensionCount, &glfwExtensions]() {
+    auto initializeGlfw([this, &vGlfwExtensions]() {
         // Initializing GLFW library
         /* Calling glfwInit() -> GLFW_TRUE(1) or GLFW_FALSE(0) */
         return_log_if(!glfwInit(), "GLFW not initialised...", false)
@@ -475,19 +472,21 @@ bool VIEngine::prepareEngine() {
 
         // Getting extensions from GLFW for Vulkan implementation
         /* Calling glfwGetRequiredInstanceExtensions(pointer to uint32_t count) -> const char** */
-        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+        uint32_t glfwExtensionCount = 0;
+        const char **glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+        vGlfwExtensions.reserve(glfwExtensionCount);
+        vGlfwExtensions.insert(vGlfwExtensions.begin(), glfwExtensions, glfwExtensions + glfwExtensionCount);
 
         // Setting up current engine pointer for callbacks
         glfwSetWindowUserPointer(glfwWindow, this);
 
         // Setting up window resize callback
-        // TODO understand why it doesn't work
         glfwSetFramebufferSizeCallback(glfwWindow, framebufferResizeCallback);
 
         return true;
     });
 
-    auto createVulkanInstance([this, &glfwExtensionCount, &glfwExtensions]() {
+    auto createVulkanInstance([this, &vGlfwExtensions]() {
         // Creating the application details
         // https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkApplicationInfo.html
         //TODO update to 1.3
@@ -512,15 +511,30 @@ bool VIEngine::prepareEngine() {
             });
         });
 
-        // TODO implement additional debug
+        if (settings.enableMessageCallback) {
+            vGlfwExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        }
+
+        VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+            .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+            .pfnUserCallback = debug::debugCallback
+        };
+
         // Creating Vulkan instance
         VkInstanceCreateInfo engineCreationInfo{
                 .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+                .pNext = settings.enableMessageCallback ? &debugCreateInfo : nullptr,
                 .pApplicationInfo = &applicationInfo,
                 .enabledLayerCount = static_cast<uint32_t>(settings.validationLayers.size()),
                 .ppEnabledLayerNames = settings.validationLayers.data(),
-                .enabledExtensionCount = glfwExtensionCount,
-                .ppEnabledExtensionNames = glfwExtensions
+                .enabledExtensionCount = static_cast<uint32_t>(vGlfwExtensions.size()),
+                .ppEnabledExtensionNames = vGlfwExtensions.data()
         };
 
         // Calling vkCreateInstance(pointer to createInfo structure, pointer to custom memory allocator

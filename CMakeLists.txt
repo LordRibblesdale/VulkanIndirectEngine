@@ -48,7 +48,6 @@ endforeach()
 message("")
 
 message("- Copying needed data for execution (ONLY FOR TESTING PURPOSES)...")
-
 file(COPY "${CMAKE_SOURCE_DIR}/build/data" DESTINATION "${CMAKE_BINARY_DIR}")
 file(COPY "${CMAKE_SOURCE_DIR}/build/languages" DESTINATION "${CMAKE_BINARY_DIR}")
 file(COPY "${CMAKE_SOURCE_DIR}/build/shaders" DESTINATION "${CMAKE_BINARY_DIR}")

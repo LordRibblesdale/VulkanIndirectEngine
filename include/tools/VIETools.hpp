@@ -31,6 +31,17 @@ if (if_condition) {             \
 
 constexpr auto kUint32Max{std::numeric_limits<uint32_t>::max()};
 
+namespace debug {
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                                                        VkDebugUtilsMessageTypeFlagsEXT messageType,
+                                                        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+                                                        void* pUserData) {
+        std::cout << fmt::format("[{}] Validation layer: {}", messageSeverity, pCallbackData->pMessage) << std::endl;
+
+        return VK_FALSE;
+    }
+}
+
 namespace tools {
     template <typename VkFunc, typename Vector, typename... Args>
     inline void gatherVkData(VkFunc &vkCall, Vector &v, uint32_t &count, Args &&...requiredArgs) {
