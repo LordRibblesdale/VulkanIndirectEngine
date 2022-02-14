@@ -22,8 +22,8 @@ enum class VIEStatus : uint8_t {
     VULKAN_SHADERS_COMPILED             = 18,   ///< Vulkan graphics pipeline generated state
     VULKAN_COMMAND_POOL_CREATED         = 19,   ///<
     VULKAN_IMAGE_VIEWS_CREATED          = 20,   ///< Vulkan image views created state
-    VULKAN_PIPELINE_STATES_PREPARED     = 21,   ///<
-    VULKAN_RENDER_PASSES_GENERATED      = 22,   ///<
+    VULKAN_RENDER_PASSES_GENERATED      = 21,   ///<
+    VULKAN_PIPELINE_STATES_PREPARED     = 22,   ///<
     VULKAN_GRAPHICS_PIPELINE_GENERATED  = 23,   ///<
     VULKAN_FRAMEBUFFERS_CREATED         = 24,   ///<
     VULKAN_COMMAND_BUFFERS_PREPARED     = 25,   ///<

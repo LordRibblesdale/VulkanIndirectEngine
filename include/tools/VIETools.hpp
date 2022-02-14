@@ -36,7 +36,27 @@ namespace debug {
                                                         VkDebugUtilsMessageTypeFlagsEXT messageType,
                                                         const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
                                                         void* pUserData) {
-        std::cout << fmt::format("[{}] Validation layer: {}", messageSeverity, pCallbackData->pMessage) << std::endl;
+        std::string severity;
+
+        switch (messageSeverity) {
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+                severity = "VERBOSE";
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+                severity = "INFO";
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+                severity = "WARNING";
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+                severity = "ERROR";
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
+                severity = "GENERIC";
+                break;
+        }
+
+        std::cout << fmt::format("[{}] Validation layer: {}", severity, pCallbackData->pMessage) << std::endl;
 
         return VK_FALSE;
     }

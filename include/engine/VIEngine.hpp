@@ -64,6 +64,9 @@ class VIEngine {
     // Vulkan instance
     VkInstance vkInstance{};            ///< Vulkan runtime instance
 
+    VkPhysicalDevice vkPhysicalDevice{};                    /**< Vulkan physical device object (for used device
+                                                             *    representation) */
+
     // Vulkan logic device
     VkDevice vkDevice{};                ///< Vulkan logical device object (for state, resources used by instance)
 

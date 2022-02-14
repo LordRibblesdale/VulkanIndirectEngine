@@ -19,7 +19,7 @@
  * @brief VIESettings structure for data access around the engine
  */
 struct VIESettings {
-    bool enableMessageCallback = true;
+    bool enableMessageCallback = false;
 
     std::vector<const char*> validationLayers;    ///< Vulkan validation layers for text/debug output
 
@@ -32,7 +32,7 @@ struct VIESettings {
     uint32_t yRes;                        ///< Vertical window resolution
 
     ///< Lambda for preferred PhysicalDevice choice
-    std::function<bool(const VkPhysicalDevice &)> isPreferrableDevice{};
+    std::function<bool(const VkPhysicalDevice &)> isPreferableDevice{};
 
     VkPresentModeKHR preferredPresentMode;                ///< Frame limiter handler
 
@@ -41,10 +41,8 @@ struct VIESettings {
     std::vector<VkQueueFlagBits> defaultFlags{VK_QUEUE_GRAPHICS_BIT};
     std::vector<VkQueueFlagBits> preferredFlagBits;
 
-    // VkFormat shadowMappingFormat{VK_FORMAT_R8_SRGB};
-    VkFormat defaultFormat{VK_FORMAT_R8G8B8A8_SRGB};
+    VkFormat defaultFormat{VK_FORMAT_B8G8R8A8_SRGB};
     VkColorSpaceKHR defaultColorSpace{VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
-
 
     const std::string kEngineName{"VulkanIndirectEngine"};
     const uint32_t kEngineVersion{VK_MAKE_API_VERSION(0, 1, 0, 0)};    ///< Engine version
@@ -74,6 +72,6 @@ struct VIESettings {
 
     template<typename Predicate>
     inline void setPreferredDeviceSelection(Predicate &&predicate) {
-        isPreferrableDevice = std::forward<Predicate>(predicate);
+        isPreferableDevice = std::forward<Predicate>(predicate);
     }
 };
