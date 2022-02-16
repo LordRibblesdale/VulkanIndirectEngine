@@ -14,64 +14,62 @@
 #include <fmt/format.h>
 
 #include "VIEStatus.hpp"
+#include "LanguageResource.hpp"
 
 /**
  * @brief VIESettings structure for data access around the engine
  */
 struct VIESettings {
-    bool enableMessageCallback = false;
+private:
+    void setDefaultValues();
 
-    std::vector<const char*> validationLayers;    ///< Vulkan validation layers for text/debug output
+    static const uint16_t kDefaultXRes{1366};
+    static const uint16_t kDefaultYRes{768};
 
-    ///< Vulkan device extensions for additional API support
-    std::vector<const char*> deviceExtensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-
-    // ----------------------
-
-    uint32_t xRes;                        ///< Horizontal window resolution
-    uint32_t yRes;                        ///< Vertical window resolution
-
-    ///< Lambda for preferred PhysicalDevice choice
-    std::function<bool(const VkPhysicalDevice &)> isPreferableDevice{};
-
-    VkPresentModeKHR preferredPresentMode;                ///< Frame limiter handler
-
-    //TODO complete documentation
-    ///< Default and preferred flag bits for queue family research
-    std::vector<VkQueueFlagBits> defaultFlags{VK_QUEUE_GRAPHICS_BIT};
-    std::vector<VkQueueFlagBits> preferredFlagBits;
-
-    VkFormat defaultFormat{VK_FORMAT_B8G8R8A8_SRGB};
-    VkColorSpaceKHR defaultColorSpace{VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+    inline static const char* kDefaultName{"VIEProgram"};
+    static const uint32_t kDefaultVersion{VK_MAKE_API_VERSION(0, 0, 0, 0)};
+public:
+    const std::vector<const char*> kDeviceExtensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    const VkFormat kDefaultFormat{VK_FORMAT_B8G8R8A8_SRGB};
+    const VkColorSpaceKHR kDefaultColorSpace{VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+    const std::vector<VkQueueFlagBits> kDefaultQueueFlags{VK_QUEUE_GRAPHICS_BIT};
 
     const std::string kEngineName{"VulkanIndirectEngine"};
-    const uint32_t kEngineVersion{VK_MAKE_API_VERSION(0, 1, 0, 0)};    ///< Engine version
-
-    const std::string kApplicationName;          ///< Application name
-    const uint32_t kApplicationVersion;
-    const std::string kApplicationProgramName;   ///< Combined application name and version
-
-    const uint32_t kDefaultXRes;
-    const uint32_t kDefaultYRes;
+    const uint32_t kEngineVersion{VK_MAKE_API_VERSION(0, 1, 0, 0)};
 
     const uint8_t kMaxFramesInFlight{2};
 
+    // -----------------------------------------------------------------------------------------------------------------
+
+    std::string applicationName{};
+    uint32_t applicationVersion{};
+
+    uint32_t startingXRes{};
+    uint32_t startingYRes{};
+
+    double frameTime;
+
+    std::string vertexShaderLocation{};
+    std::string fragmentShaderLocation{};
+
+    VkPhysicalDeviceType selectedDeviceType{VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU};
+    VkPresentModeKHR preferredPresentMode{VK_PRESENT_MODE_FIFO_KHR};
+
+    bool enableMessageCallback = false;
+    bool pauseOnMinimized = false;
+
+    std::vector<const char*> validationLayers;
+    std::vector<VkQueueFlagBits> preferredFlagBits;
+
+    std::function<bool(const VkPhysicalDevice &)> isPreferableDevice{};
+
+    std::unique_ptr<LanguageResource> languageResource;
+
+    // -----------------------------------------------------------------------------------------------------------------
+
     VIESettings() = delete;
-
-    VIESettings(const std::string &applicationName, uint32_t appMajorVersion, uint32_t appMinorVersion,
-                uint32_t appPatchVersion, uint32_t xRes, uint32_t yRes,
-                VkPresentModeKHR refreshMode = VK_PRESENT_MODE_IMMEDIATE_KHR)
-            : xRes(xRes), yRes(yRes), preferredPresentMode(refreshMode), kApplicationName(applicationName),
-              kApplicationVersion(VK_MAKE_API_VERSION(0, appMajorVersion, appMinorVersion, appPatchVersion)),
-              kApplicationProgramName(fmt::format("{} - {}.{}.{}", applicationName, appMajorVersion, appMinorVersion,
-                                                  appPatchVersion)), kDefaultXRes(xRes), kDefaultYRes(yRes) {}
-
-    VIESettings(const VIESettings &) = default;
+    VIESettings(const std::string &configLocation);
+    VIESettings(const VIESettings &) = delete;
     VIESettings(VIESettings &&) = default;
     ~VIESettings() = default;
-
-    template<typename Predicate>
-    inline void setPreferredDeviceSelection(Predicate &&predicate) {
-        isPreferableDevice = std::forward<Predicate>(predicate);
-    }
 };

@@ -7,7 +7,7 @@
 #include "engine/VIESettings.hpp"
 #include "tools/VIETools.hpp"
 
-VIEngine::VIEngine(const VIESettings &settings) : settings(settings) {}
+VIEngine::VIEngine(VIESettings settings) : settings(std::move(settings)) {}
 
 VIEngine::~VIEngine() {
     if (engineStatus != VIEStatus::UNINITIALISED) {
@@ -25,8 +25,8 @@ bool VIEngine::generateRendererCore() {
 
     /// -- Swap chain --
     // Selecting surface format (channels and color space)
-    return_log_if(!tools::selectSurfaceFormat(surfaceAvailableFormats, settings.defaultFormat,
-                                              settings.defaultColorSpace, chosenSurfaceFormat),
+    return_log_if(!tools::selectSurfaceFormat(surfaceAvailableFormats, settings.kDefaultFormat,
+                                              settings.kDefaultColorSpace, chosenSurfaceFormat),
                   "No compatible surface format found for main physical device...", false)
 
     // Selecting presentation mode by a swap chain (describing how and when images are represented on screen)
@@ -418,15 +418,14 @@ bool VIEngine::generateRendererCore() {
 }
 
 bool VIEngine::regenerateRendererCore() {
-    // TODO check if program should pause or not during minimizing (by flag?)
-    /*
-    int width = 0, height = 0;
-    glfwGetFramebufferSize(glfwWindow, &width, &height);
-    while (width == 0 || height == 0) {
+    if (settings.pauseOnMinimized) {
+        int width = 0, height = 0;
         glfwGetFramebufferSize(glfwWindow, &width, &height);
-        glfwWaitEvents();
+        while (width == 0 || height == 0) {
+            glfwGetFramebufferSize(glfwWindow, &width, &height);
+            glfwWaitEvents();
+        }
     }
-     */
 
     vkDeviceWaitIdle(vkDevice);
 
@@ -454,9 +453,9 @@ bool VIEngine::prepareEngine() {
 
         // Creating pointer to GLFWwindow struct
         /* Calling glfwCreateWindow(width, height, title, monitor, shareDependencyWindow) -> GLFWwindow* */
-        glfwWindow = glfwCreateWindow(static_cast<int>(settings.kDefaultXRes),
-                                      static_cast<int>(settings.kDefaultYRes),
-                                      settings.kApplicationProgramName.c_str(), nullptr, nullptr);
+        glfwWindow = glfwCreateWindow(static_cast<int>(settings.startingXRes),
+                                      static_cast<int>(settings.startingYRes),
+                                      settings.applicationName.c_str(), nullptr, nullptr);
 
         return_log_if(!glfwWindow, "GLFW window not initialised...", false)
 
@@ -482,8 +481,8 @@ bool VIEngine::prepareEngine() {
         //TODO update to 1.3
         VkApplicationInfo applicationInfo{
                 .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-                .pApplicationName = settings.kApplicationName.c_str(),
-                .applicationVersion = settings.kApplicationVersion,
+                .pApplicationName = settings.applicationName.c_str(),
+                .applicationVersion = settings.applicationVersion,
                 .pEngineName = "VulkanIndirectEngine",
                 .engineVersion = settings.kEngineVersion,
                 .apiVersion = VK_API_VERSION_1_2
@@ -570,7 +569,6 @@ bool VIEngine::prepareEngine() {
         }
 
         // Selecting and sorting devices
-        // TODO improve here
         bool isDeviceSet = (std::ranges::any_of(
                 availableDevices,
                 [this](const VkPhysicalDevice &physicalDevice) {
@@ -611,8 +609,8 @@ bool VIEngine::prepareEngine() {
                 .pQueueCreateInfos = deviceQueuesCreateInfo.data(),
                 .enabledLayerCount = static_cast<uint32_t>(settings.validationLayers.size()),
                 .ppEnabledLayerNames = settings.validationLayers.data(),
-                .enabledExtensionCount = static_cast<uint32_t>(settings.deviceExtensions.size()),
-                .ppEnabledExtensionNames = settings.deviceExtensions.data(),
+                .enabledExtensionCount = static_cast<uint32_t>(settings.kDeviceExtensions.size()),
+                .ppEnabledExtensionNames = settings.kDeviceExtensions.data(),
                 .pEnabledFeatures = &vkPhysicalDeviceFeatures,
         };
 

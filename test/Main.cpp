@@ -6,30 +6,10 @@
 #include "engine/VIEngine.hpp"
 
 int main(int argc, char** argv) {
-    // Reading settings
-    VIESettings settings("VulkanIndirectEngine", 1, 0, 0, 1920, 1080, VK_PRESENT_MODE_IMMEDIATE_KHR);
-
-    settings.setPreferredDeviceSelection([](const VkPhysicalDevice& device) {
-        VkPhysicalDeviceProperties deviceProperties;
-        VkPhysicalDeviceFeatures deviceFeatures;
-
-        vkGetPhysicalDeviceProperties(device, &deviceProperties);
-        vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
-
-        // TODO set as default (multidrawindirect?)
-        return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-               deviceFeatures.multiDrawIndirect && deviceFeatures.multiViewport;
-    });
-
-    settings.validationLayers.push_back("VK_LAYER_KHRONOS_validation");
-
-    // TODO create an input structure asking engine to create shaders from locations defined by user
-    //  like: struct VIEShaderRequestEntry { str: vert.location, str: frag.location }
-
     // Initialising engine
     std::cout << "Sizeof VIEngine: " << sizeof(VIEngine) << " bytes" << std::endl;
     std::cout << "Sizeof VIESettings: " << sizeof(VIESettings) << " bytes" << std::endl;
-    auto engine(std::make_unique<VIEngine>(settings));
+    auto engine(std::make_unique<VIEngine>(VIESettings("./data/settings.xml")));
     engine->prepareEngine();
     engine->runEngine();
     engine.reset();

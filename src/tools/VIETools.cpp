@@ -46,7 +46,7 @@ bool tools::selectPhysicalDevice(VkPhysicalDevice const &deviceToCheck, VkPhysic
                         nullptr);
 
     // Checking that all requested deviceToCheck extensions are compatible with the selected vkDevice
-    if (!std::ranges::all_of(settings.deviceExtensions,
+    if (!std::ranges::all_of(settings.kDeviceExtensions,
                              [&availableExtensions](std::string_view extension) {
                                  return std::ranges::any_of(
                                          availableExtensions,
@@ -72,7 +72,7 @@ bool tools::selectPhysicalDevice(VkPhysicalDevice const &deviceToCheck, VkPhysic
         });
 
         // If compatible, queue subset family index is saved
-        if (std::ranges::all_of(settings.defaultFlags, containsFlags) &&
+        if (std::ranges::all_of(settings.kDefaultQueueFlags, containsFlags) &&
             std::ranges::all_of(settings.preferredFlagBits, containsFlags)) {
             mainDeviceSelectedQueueFamily = selectedIndex;
         }

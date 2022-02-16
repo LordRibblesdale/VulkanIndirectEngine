@@ -128,7 +128,7 @@ class VIEngine {
 
 public:
     VIEngine() = delete;
-    explicit VIEngine(const VIESettings &settings);
+    explicit VIEngine(VIESettings settings);
     VIEngine(const VIEngine &) = delete;
     VIEngine(VIEngine &&) = default;
     ~VIEngine();
