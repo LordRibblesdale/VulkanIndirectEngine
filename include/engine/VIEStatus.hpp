@@ -11,8 +11,9 @@
  * Up to 256 status
  */
 enum class VIEStatus : uint8_t {
-    UNINITIALISED                       = 10,   ///< Uninitialised state
-    SETTINGS_LOADED                     = 11,   ///< VIESettings-only initialised state
+    UNINITIALISED                       = 00,   ///< Uninitialised state
+    SETTINGS_LOADED                     = 01,   ///< VIESettings-only initialised state
+    SCENARIO_LOADED                     = 02,
     GLFW_LOADED                         = 12,   ///< GLFW window (without API) initialised state
     VULKAN_INSTANCE_CREATED             = 13,   ///< Vulkan instanced program state
     VULKAN_SURFACE_CREATED              = 14,   ///< GLFW native OS bing and its Vulkan surface created state

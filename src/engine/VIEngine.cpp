@@ -436,6 +436,10 @@ bool VIEngine::regenerateRendererCore() {
     return true;
 }
 
+bool VIEngine::loadScenario() {
+
+}
+
 bool VIEngine::prepareEngine() {
     std::vector<const char*> vGlfwExtensions;    ///< GLFW extensions count for Vulkan ext. initialisation
     float mainQueueFamilyPriority = 1.0f;                   ///< Main queue family priority

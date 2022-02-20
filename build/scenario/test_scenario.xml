@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Scenario>
+    <!-- Model
+            dir=<string>
+            file=<string> (same name for obj and mtl for OBJ type) -->
+    <Model dir="models/David" file="David" keyName="david">
+        <!-- Rotation
+                roll=<float>
+                pitch=<float>
+                yaw=<float> -->
+        <Rotation roll="0" pitch="0" yaw="0"/>
+        <!-- Scale
+                x=<float>
+                y=<float>
+                z=<float> -->
+        <Scale x="0" y="0" z="0"/>
+        <!-- Translation
+                x=<float>
+                y=<float>
+                z=<float> -->
+        <Translation x="0" y="0" z="0"/>
+    </Model>
+
+    <!-- Camera
+            keyName=<string> -->
+    <Camera keyName="freeview">
+        <!-- Eye
+                x=<float>
+                y=<float>
+                z=<float> -->
+        <Eye x="1" y="0" z="0"/>
+        <!-- LookAt
+                x=<float>
+                y=<float>
+                z=<float> -->
+        <LookAt x="0" y="0" z="0"/>
+        <!-- Up
+                x=<float>
+                y=<float>
+                z=<float> -->
+        <Up x="0" y="0" z="0"/>
+    </Camera>
+</Scenario>

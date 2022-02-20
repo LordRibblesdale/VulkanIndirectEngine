@@ -133,6 +133,11 @@ public:
     VIEngine(VIEngine &&) = default;
     ~VIEngine();
 
+    /** TODO complete documentation
+     * @brief
+     */
+    bool loadScenario();
+
     /**
      * @brief VIEngine::prepareEngine for running up all processes (initialisation, preparation, running, cleaning)
      * This function collects all functions needed for running the engine for initialization
@@ -144,9 +149,9 @@ public:
      */
     void runEngine();
 
-    /**
-     * @brief VIEngine::cleanEngine for cleaning all structures and window pointers
-     * All structures created during the engine runtime are destroyed at the end.
+    /** TODO complete documentation
+     * @brief
+     *
      */
     void cleanEngine();
 };

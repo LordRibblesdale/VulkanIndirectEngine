@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
     // Initialising engine
     std::cout << "Sizeof VIEngine: " << sizeof(VIEngine) << " bytes" << std::endl;
     std::cout << "Sizeof VIESettings: " << sizeof(VIESettings) << " bytes" << std::endl;
-    auto engine(std::make_unique<VIEngine>(VIESettings("./data/settings.xml")));
+    auto engine(std::make_unique<VIEngine>(VIESettings("./settings.xml")));
     engine->prepareEngine();
     engine->runEngine();
     engine.reset();
